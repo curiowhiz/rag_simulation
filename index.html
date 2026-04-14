@@ -1,186 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RAG Simulator</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #0f172a;
-      color: #e2e8f0;
-    
-
-    header {
-      padding: 20px;
-      text-align: center;
-      background: #1e293b;
-      font-size: 24px;
-      font-weight: bold;
-    }
-
-    .container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      padding: 20px;
-    }
-
-    .card {
-      background: #1e293b;
-      padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
-
-    textarea, input {
-      width: 100%;
-      padding: 10px;
-      border-radius: 8px;
-      border: none;
-      margin-top: 10px;
-      background: #0f172a;
-      color: white;
-    }
-
-    button {
-      margin-top: 10px;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      background: #3b82f6;
-      color: white;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #2563eb;
-    }
-
-    .step {
-      margin-top: 10px;
-      padding: 10px;
-      background: #0f172a;
-      border-radius: 8px;
-    }
-
-    .highlight {
-      color: #38bdf8;
-    }
-
-    .full {
-      grid-column: span 2;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Simulator V2</title>
+<style>
+body {
+  font-family: Inter, sans-serif;
+  margin: 0;
+  background: linear-gradient(135deg, #0f172a, #020617);
+  color: #e2e8f0;
+}
+.container {
+  max-width: 1100px;
+  margin: auto;
+  padding: 20px;
+}
+.card {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+h1 {
+  text-align: center;
+}
+h2 {
+  color: #38bdf8;
+}
+textarea, input, select, button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+}
+button {
+  background: #38bdf8;
+  color: black;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+}
+button:hover {
+  transform: scale(1.02);
+}
+.output {
+  margin-top: 10px;
+  background: #020617;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.step {
+  border-left: 4px solid #38bdf8;
+  padding-left: 10px;
+  margin-bottom: 10px;
+}
+.highlight {
+  background: #065f46;
+  padding: 5px;
+  border-radius: 6px;
+}
+.bad {
+  background: #7f1d1d;
+}
+</style>
 </head>
 <body>
-
-<header>RAG Simulator (Learn by Doing)</header>
-
 <div class="container">
+<h1>🧠 Interactive RAG Simulator V2</h1>
 
-  <div class="card">
-    <h3>1. Knowledge Base</h3>
-    <textarea id="kb" rows="6" placeholder="Enter documents (one per line)"></textarea>
-    <button onclick="chunkData()">Chunk Data</button>
-    <div id="chunks" class="step"></div>
-  </div>
+<div class="card">
+<h2>Step 1: Build Knowledge Base</h2>
+<textarea id="textInput" placeholder="Enter ~100 words"></textarea>
+<select id="chunkSize">
+<option value="3">3 Chunks</option>
+<option value="5">5 Chunks</option>
+<option value="10">10 Chunks</option>
+<option value="15">15 Chunks</option>
+</select>
+<label><input type="checkbox" id="badChunk"> Simulate Bad Chunking</label>
+<button onclick="processData()">Generate Chunks</button>
+<div id="chunkStep" class="output"></div>
+</div>
 
-  <div class="card">
-    <h3>2. Embeddings (Simulated)</h3>
-    <button onclick="embedData()">Create Embeddings</button>
-    <div id="embeddings" class="step"></div>
-  </div>
+<div class="card">
+<h2>Step 2: Embeddings</h2>
+<button onclick="showEmbeddings()">Generate Embeddings</button>
+<div id="embeddingStep" class="output"></div>
+</div>
 
-  <div class="card">
-    <h3>3. User Query</h3>
-    <input id="query" placeholder="Ask something..." />
-    <button onclick="search()">Retrieve Relevant Chunks</button>
-    <div id="results" class="step"></div>
-  </div>
+<div class="card">
+<h2>Step 3: Query + Retrieval</h2>
+<input type="text" id="queryInput" placeholder="Ask a question">
+<label><input type="checkbox" id="noiseToggle"> Add Noise (Bad Retrieval)</label>
+<button onclick="runQuery()">Run Retrieval</button>
+<div id="queryStep" class="output"></div>
+<div id="rankingStep" class="output"></div>
+</div>
 
-  <div class="card">
-    <h3>4. Augmented Context</h3>
-    <button onclick="augment()">Build Context</button>
-    <div id="context" class="step"></div>
-  </div>
-
-  <div class="card full">
-    <h3>5. Generation (Simulated LLM)</h3>
-    <button onclick="generate()">Generate Answer</button>
-    <div id="output" class="step"></div>
-  </div>
+<div class="card">
+<h2>Step 4: Evaluation</h2>
+<div id="evaluationStep" class="output"></div>
+</div>
 
 </div>
 
 <script>
-  let chunks = [];
-  let embeddings = [];
-  let retrieved = [];
+let chunks = [];
+let embeddings = [];
 
-  function chunkData() {
-    const kb = document.getElementById("kb").value.split("\n");
-    chunks = kb.map((text, i) => ({ id: i, text }));
+function processData() {
+  const text = document.getElementById("textInput").value;
+  const chunkCount = parseInt(document.getElementById("chunkSize").value);
+  const badChunk = document.getElementById("badChunk").checked;
 
-    document.getElementById("chunks").innerHTML = chunks
-      .map(c => `<div>${c.id}: ${c.text}</div>`)
-      .join("");
+  if (!text) return alert("Enter text");
+
+  const words = text.split(" ");
+  const size = Math.ceil(words.length / chunkCount);
+
+  chunks = [];
+  for (let i = 0; i < chunkCount; i++) {
+    let chunkWords = words.slice(i * size, (i + 1) * size);
+    if (badChunk) chunkWords = shuffle(chunkWords);
+    chunks.push(chunkWords.join(" "));
   }
 
-  function fakeEmbedding(text) {
-    return text.toLowerCase().split(" ");
+  document.getElementById("chunkStep").innerHTML =
+    `<div class='step'>Chunking splits data into parts for retrieval.</div>` +
+    chunks.map((c, i) => `<div>Chunk ${i+1}: ${c}</div>`).join("");
+}
+
+function showEmbeddings() {
+  embeddings = chunks.map(c => fakeEmbedding(c));
+
+  document.getElementById("embeddingStep").innerHTML =
+    `<div class='step'>Embeddings convert text into numbers.</div>` +
+    embeddings.map((e, i) => `Chunk ${i+1}: ${JSON.stringify(e.slice(0,10))}...`).join("<br>");
+}
+
+function fakeEmbedding(text) {
+  return text.split("").map(c => c.charCodeAt(0) % 7);
+}
+
+function cosineSimilarity(a, b) {
+  let dot=0, magA=0, magB=0;
+  for (let i=0;i<Math.min(a.length,b.length);i++){
+    dot+=a[i]*b[i];
+    magA+=a[i]*a[i];
+    magB+=b[i]*b[i];
   }
+  return dot/(Math.sqrt(magA)*Math.sqrt(magB)||1);
+}
 
-  function embedData() {
-    embeddings = chunks.map(c => ({
-      ...c,
-      vector: fakeEmbedding(c.text)
-    }));
+function runQuery() {
+  const query = document.getElementById("queryInput").value;
+  const noise = document.getElementById("noiseToggle").checked;
 
-    document.getElementById("embeddings").innerHTML = embeddings
-      .map(e => `<div>${e.id}: [${e.vector.join(", ")}]</div>`)
-      .join("");
-  }
+  if (!query) return alert("Enter query");
 
-  function similarity(a, b) {
-    let score = 0;
-    a.forEach(word => {
-      if (b.includes(word)) score++;
-    });
-    return score;
-  }
+  const qEmbed = fakeEmbedding(query);
 
-  function search() {
-    const query = document.getElementById("query").value;
-    const qVec = fakeEmbedding(query);
+  let scores = embeddings.map((e,i)=>({
+    index:i,
+    score:cosineSimilarity(qEmbed,e)
+  }));
 
-    retrieved = embeddings
-      .map(e => ({
-        ...e,
-        score: similarity(qVec, e.vector)
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
+  if (noise) scores = shuffle(scores);
 
-    document.getElementById("results").innerHTML = retrieved
-      .map(r => `<div class="highlight">${r.text} (score: ${r.score})</div>`)
-      .join("");
-  }
+  scores.sort((a,b)=>b.score-a.score);
 
-  function augment() {
-    const context = retrieved.map(r => r.text).join(" ");
-    document.getElementById("context").innerText = context;
-  }
+  document.getElementById("queryStep").innerHTML =
+    `<div class='step'>Query converted to embedding.</div>` +
+    JSON.stringify(qEmbed.slice(0,10));
 
-  function generate() {
-    const query = document.getElementById("query").value;
-    const context = document.getElementById("context").innerText;
+  document.getElementById("rankingStep").innerHTML =
+    `<div class='step'>Chunks ranked by similarity.</div>` +
+    scores.map(s=>`Chunk ${s.index+1}: ${s.score.toFixed(3)}`).join("<br>");
 
-    const output = `Answer based on retrieved context:\n\nQ: ${query}\n\nContext: ${context}\n\nA: This answer is generated using the above context. (Simulated)`;
+  const best = chunks[scores[0].index];
 
-    document.getElementById("output").innerText = output;
-  }
+  document.getElementById("evaluationStep").innerHTML =
+    `<div class='step'>Evaluation checks if top chunk is relevant.</div>
+     <div class='highlight'>Top Chunk: ${best}</div>
+     <div>Score: ${scores[0].score.toFixed(3)}</div>
+     <div>${scores[0].score > 0.5 ? "Good Retrieval" : "Poor Retrieval"}</div>`;
+}
+
+function shuffle(arr) {
+  return arr.sort(()=>Math.random()-0.5);
+}
 </script>
 
 </body>

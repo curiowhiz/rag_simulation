@@ -1,240 +1,186 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>RAG Simulator</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG Simulator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
 
-<style>
-body{
-font-family: Inter, Arial, sans-serif;
-background:#0f172a;
-color:white;
-margin:0;
-padding:30px;
-}
+    header {
+      padding: 20px;
+      text-align: center;
+      background: #1e293b;
+      font-size: 24px;
+      font-weight: bold;
+    }
 
-.container{
-max-width:1100px;
-margin:auto;
-}
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      padding: 20px;
+    }
 
-h1{
-text-align:center;
-margin-bottom:30px;
-}
+    .card {
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
 
-.card{
-background:#1e293b;
-padding:20px;
-border-radius:10px;
-margin-bottom:20px;
-}
+    textarea, input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      margin-top: 10px;
+      background: #0f172a;
+      color: white;
+    }
 
-textarea,input{
-width:100%;
-padding:10px;
-border-radius:6px;
-border:none;
-margin-top:8px;
-background:#334155;
-color:white;
-}
+    button {
+      margin-top: 10px;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #3b82f6;
+      color: white;
+      cursor: pointer;
+    }
 
-button{
-margin-top:10px;
-padding:10px 15px;
-border:none;
-border-radius:6px;
-background:#6366f1;
-color:white;
-cursor:pointer;
-}
+    button:hover {
+      background: #2563eb;
+    }
 
-button:hover{
-background:#4f46e5;
-}
+    .step {
+      margin-top: 10px;
+      padding: 10px;
+      background: #0f172a;
+      border-radius: 8px;
+    }
 
-.grid{
-display:grid;
-grid-template-columns:1fr 1fr;
-gap:20px;
-}
+    .highlight {
+      color: #38bdf8;
+    }
 
-.step{
-background:#020617;
-padding:15px;
-border-radius:8px;
-margin-top:10px;
-font-size:14px;
-}
-
-.chunk{
-background:#334155;
-padding:8px;
-margin:5px 0;
-border-radius:6px;
-}
-
-.highlight{
-background:#22c55e;
-}
-
-.answer{
-background:#065f46;
-padding:10px;
-border-radius:8px;
-margin-top:10px;
-}
-
-.small{
-font-size:12px;
-opacity:0.7;
-}
-</style>
+    .full {
+      grid-column: span 2;
+    }
+  </style>
 </head>
-
 <body>
+
+<header>RAG Simulator (Learn by Doing)</header>
 
 <div class="container">
 
-<h1>RAG (Retrieval Augmented Generation) Simulator</h1>
+  <div class="card">
+    <h3>1. Knowledge Base</h3>
+    <textarea id="kb" rows="6" placeholder="Enter documents (one per line)"></textarea>
+    <button onclick="chunkData()">Chunk Data</button>
+    <div id="chunks" class="step"></div>
+  </div>
 
-<div class="card">
-<label>Paste Knowledge Base Document</label>
-<textarea id="document" rows="6">
-RAG stands for Retrieval Augmented Generation. It improves LLM answers by retrieving relevant documents. Vector databases store embeddings of document chunks. Similarity search finds relevant context.
-</textarea>
+  <div class="card">
+    <h3>2. Embeddings (Simulated)</h3>
+    <button onclick="embedData()">Create Embeddings</button>
+    <div id="embeddings" class="step"></div>
+  </div>
 
-<button onclick="processDocs()">Process Documents</button>
+  <div class="card">
+    <h3>3. User Query</h3>
+    <input id="query" placeholder="Ask something..." />
+    <button onclick="search()">Retrieve Relevant Chunks</button>
+    <div id="results" class="step"></div>
+  </div>
 
-<div id="chunks" class="step"></div>
-<div id="vectors" class="step"></div>
-</div>
+  <div class="card">
+    <h3>4. Augmented Context</h3>
+    <button onclick="augment()">Build Context</button>
+    <div id="context" class="step"></div>
+  </div>
 
-<div class="card">
-<label>User Query</label>
-<input id="query" value="What does RAG do?">
-
-<button onclick="runQuery()">Run RAG Pipeline</button>
-
-<div id="queryEmbedding" class="step"></div>
-<div id="retrieval" class="step"></div>
-<div id="context" class="step"></div>
-<div id="answer" class="answer"></div>
-
-</div>
+  <div class="card full">
+    <h3>5. Generation (Simulated LLM)</h3>
+    <button onclick="generate()">Generate Answer</button>
+    <div id="output" class="step"></div>
+  </div>
 
 </div>
 
 <script>
+  let chunks = [];
+  let embeddings = [];
+  let retrieved = [];
 
-let vectorDB=[]
+  function chunkData() {
+    const kb = document.getElementById("kb").value.split("\n");
+    chunks = kb.map((text, i) => ({ id: i, text }));
 
-function chunkText(text){
-return text.match(/[^\.!\?]+[\.!\?]+/g) || [text]
-}
+    document.getElementById("chunks").innerHTML = chunks
+      .map(c => `<div>${c.id}: ${c.text}</div>`)
+      .join("");
+  }
 
-function createEmbedding(text){
-let vec=[]
-for(let i=0;i<10;i++){
-vec.push((text.charCodeAt(i%text.length)||0)/255)
-}
-return vec
-}
+  function fakeEmbedding(text) {
+    return text.toLowerCase().split(" ");
+  }
 
-function cosine(a,b){
+  function embedData() {
+    embeddings = chunks.map(c => ({
+      ...c,
+      vector: fakeEmbedding(c.text)
+    }));
 
-let dot=0
-let normA=0
-let normB=0
+    document.getElementById("embeddings").innerHTML = embeddings
+      .map(e => `<div>${e.id}: [${e.vector.join(", ")}]</div>`)
+      .join("");
+  }
 
-for(let i=0;i<a.length;i++){
-dot+=a[i]*b[i]
-normA+=a[i]*a[i]
-normB+=b[i]*b[i]
-}
+  function similarity(a, b) {
+    let score = 0;
+    a.forEach(word => {
+      if (b.includes(word)) score++;
+    });
+    return score;
+  }
 
-return dot/(Math.sqrt(normA)*Math.sqrt(normB))
-}
+  function search() {
+    const query = document.getElementById("query").value;
+    const qVec = fakeEmbedding(query);
 
-function processDocs(){
+    retrieved = embeddings
+      .map(e => ({
+        ...e,
+        score: similarity(qVec, e.vector)
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
 
-let text=document.getElementById("document").value
+    document.getElementById("results").innerHTML = retrieved
+      .map(r => `<div class="highlight">${r.text} (score: ${r.score})</div>`)
+      .join("");
+  }
 
-let chunks=chunkText(text)
+  function augment() {
+    const context = retrieved.map(r => r.text).join(" ");
+    document.getElementById("context").innerText = context;
+  }
 
-vectorDB=[]
+  function generate() {
+    const query = document.getElementById("query").value;
+    const context = document.getElementById("context").innerText;
 
-let chunkHTML="<b>Step 1: Document Chunking</b><br>"
+    const output = `Answer based on retrieved context:\n\nQ: ${query}\n\nContext: ${context}\n\nA: This answer is generated using the above context. (Simulated)`;
 
-chunks.forEach((c,i)=>{
-chunkHTML+=`<div class='chunk'>Chunk ${i+1}: ${c}</div>`
-
-let emb=createEmbedding(c)
-
-vectorDB.push({
-text:c,
-embedding:emb
-})
-
-})
-
-document.getElementById("chunks").innerHTML=chunkHTML
-
-let vecHTML="<b>Step 2–3: Embeddings Stored in Vector DB</b><br>"
-
-vectorDB.forEach((v,i)=>{
-vecHTML+=`<div class='small'>Chunk ${i+1} Vector: [${v.embedding.map(n=>n.toFixed(2)).join(", ")}]</div>`
-})
-
-document.getElementById("vectors").innerHTML=vecHTML
-
-}
-
-function runQuery(){
-
-let query=document.getElementById("query").value
-
-let qEmbed=createEmbedding(query)
-
-document.getElementById("queryEmbedding").innerHTML=
-"<b>Step 4: Query Embedding</b><br>"+JSON.stringify(qEmbed.map(n=>n.toFixed(2)))
-
-let scored=[]
-
-vectorDB.forEach(v=>{
-let score=cosine(qEmbed,v.embedding)
-scored.push({
-text:v.text,
-score:score
-})
-})
-
-scored.sort((a,b)=>b.score-a.score)
-
-let retrievalHTML="<b>Step 5: Similarity Search</b><br>"
-
-scored.forEach((r,i)=>{
-retrievalHTML+=`<div class='chunk ${i===0?"highlight":""}">Score: ${r.score.toFixed(2)} | ${r.text}</div>`
-})
-
-document.getElementById("retrieval").innerHTML=retrievalHTML
-
-let context=scored[0].text
-
-document.getElementById("context").innerHTML=
-"<b>Step 6: Context sent to LLM</b><br>"+context
-
-let answer=
-"Using retrieved context: "+context+"<br><br>"+
-"Answer: RAG improves LLM responses by retrieving relevant external knowledge and using it as context."
-
-document.getElementById("answer").innerHTML=
-"<b>Step 7: Final LLM Answer</b><br>"+answer
-
-}
-
+    document.getElementById("output").innerText = output;
+  }
 </script>
 
 </body>

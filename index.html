@@ -3,112 +3,567 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAG Simulator</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#0d0d0d">
+<title>RAG Playground — Learn Retrieval-Augmented Generation Visually</title>
+<meta name="description" content="An interactive simulator that walks through the RAG pipeline step by step: chunking, vector embeddings, similarity retrieval, and grounded generation.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-body{font-family:'Inter',sans-serif;margin:0;background:linear-gradient(135deg,#020617,#0f172a);color:#e2e8f0;}
-.container{max-width:1100px;margin:auto;padding:20px;}
-h1{text-align:center;}
-.subtitle{text-align:center;color:#94a3b8;margin-bottom:20px;}
-.card{background:#1e293b;padding:20px;border-radius:16px;margin-bottom:20px;box-shadow:0 10px 30px rgba(0,0,0,0.4);}
-.small{font-size:12px;color:#94a3b8;}
-.output{margin-top:10px;background:#020617;padding:12px;border-radius:10px;}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;}
-.highlight{background:#065f46;padding:2px 4px;border-radius:4px;}
-.bad{background:#7f1d1d;padding:2px 4px;border-radius:4px;}
-.pipeline{display:flex;gap:6px;margin-bottom:15px;}
-.pipeline div{flex:1;text-align:center;padding:8px;background:#020617;border-radius:8px;font-size:12px;}
-.active{background:#38bdf8!important;color:black;font-weight:700;}
-button{width:100%;margin-top:10px;padding:12px;border:none;border-radius:10px;background:#38bdf8;font-weight:600;cursor:pointer;}
-textarea,input,select{width:100%;margin-top:10px;padding:12px;border-radius:10px;border:none;}
-.slider{width:100%;margin-top:10px;}
-.badge{display:inline-block;padding:4px 8px;border-radius:6px;margin-top:5px;}
-.good{background:#065f46;}
-.poor{background:#7f1d1d;}
+  /* ============================================================
+     TOKENS
+     ============================================================ */
+  :root{
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #212120;
+    --ink: #ffffff;
+    --ink-secondary: #c3c2b7;
+    --ink-muted: #898781;
+    --border: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.16);
+
+    --primary: #9085e9;      /* violet — vector space / active state */
+    --primary-ink: #14121f;  /* dark text on violet (better contrast than white) */
+    --primary-wash: rgba(144,133,233,0.14);
+
+    --good: #0ca30c;
+    --good-wash: rgba(12,163,12,0.14);
+    --critical: #d03b3b;
+    --critical-wash: rgba(208,59,59,0.14);
+
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  /* Sequential blue ramp, low→high magnitude, reversed for a dark surface
+     (darkest step recedes toward --page, lightest step pops off it). */
+  :root{
+    --seq-0: #0d366b;
+    --seq-1: #184f95;
+    --seq-2: #1c5cab;
+    --seq-3: #2a78d6;
+    --seq-4: #3987e5;
+    --seq-5: #6da7ec;
+    --seq-6: #86b6ef;
+    --seq-7: #b7d3f6;
+    --seq-8: #cde2fb;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--page);
+    color:var(--ink);
+    font-family:var(--font-sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  .container{max-width:880px;margin:0 auto;padding:32px 20px 64px;}
+
+  /* ============================================================
+     HEADER
+     ============================================================ */
+  header{text-align:center;margin-bottom:28px;}
+  header h1{
+    font-size:clamp(1.75rem,4vw,2.25rem);
+    font-weight:700;
+    letter-spacing:-0.02em;
+    margin:0 0 8px;
+  }
+  header .subtitle{
+    color:var(--ink-secondary);
+    font-size:0.9375rem;
+    max-width:480px;
+    margin:0 auto;
+    line-height:1.5;
+  }
+
+  /* ============================================================
+     PIPELINE STEPPER
+     ============================================================ */
+  .stepper{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:4px;
+    margin:32px 0 8px;
+    position:relative;
+  }
+  .stepper::before{
+    content:"";
+    position:absolute;
+    top:15px;
+    left:6%;
+    right:6%;
+    height:2px;
+    background:var(--border);
+    z-index:0;
+  }
+  .stepper .track-fill{
+    position:absolute;
+    top:15px;
+    left:6%;
+    height:2px;
+    background:var(--primary);
+    z-index:1;
+    width:0%;
+    transition:width 0.5s cubic-bezier(0.16,1,0.3,1);
+  }
+  .step-node{
+    position:relative;
+    z-index:2;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    flex:1;
+    min-width:0;
+  }
+  .step-node .dot{
+    width:32px;height:32px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--surface);
+    border:2px solid var(--border-strong);
+    color:var(--ink-muted);
+    font-family:var(--font-mono);
+    font-size:0.75rem;font-weight:600;
+    transition:all 0.35s cubic-bezier(0.16,1,0.3,1);
+  }
+  .step-node .label{
+    font-size:0.6875rem;
+    color:var(--ink-muted);
+    text-align:center;
+    line-height:1.2;
+    transition:color 0.3s ease;
+  }
+  .step-node.done .dot{
+    background:var(--primary-wash);
+    border-color:var(--primary);
+    color:var(--primary);
+  }
+  .step-node.done .label{color:var(--ink-secondary);}
+  .step-node.active .dot{
+    background:var(--primary);
+    border-color:var(--primary);
+    color:var(--primary-ink);
+    box-shadow:0 0 0 5px var(--primary-wash);
+    transform:scale(1.08);
+  }
+  .step-node.active .label{color:var(--ink);font-weight:600;}
+
+  /* ============================================================
+     CARDS
+     ============================================================ */
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px 24px;
+    margin-bottom:16px;
+  }
+  .card h2{
+    font-size:1rem;
+    font-weight:600;
+    margin:0 0 4px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .card h2 .step-num{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:20px;height:20px;
+    border-radius:50%;
+    background:var(--primary-wash);
+    color:var(--primary);
+    font-family:var(--font-mono);
+    font-size:0.6875rem;
+    font-weight:600;
+  }
+  .hint{color:var(--ink-muted);font-size:0.8125rem;line-height:1.5;margin:0 0 14px;}
+  .explain{
+    color:var(--ink-secondary);
+    font-size:0.8125rem;
+    line-height:1.55;
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid var(--border);
+  }
+
+  textarea,input[type=text],input:not([type]),select{
+    width:100%;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:var(--radius-sm);
+    padding:11px 13px;
+    color:var(--ink);
+    font-family:var(--font-sans);
+    font-size:0.875rem;
+    resize:vertical;
+  }
+  textarea{min-height:84px;}
+  textarea:focus,input:focus{
+    outline:none;
+    border-color:var(--primary);
+    box-shadow:0 0 0 3px var(--primary-wash);
+  }
+  textarea::placeholder,input::placeholder{color:var(--ink-muted);}
+
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;
+    width:100%;height:4px;border-radius:2px;
+    background:var(--border-strong);
+    margin:14px 0 6px;
+    padding:0;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:16px;height:16px;border-radius:50%;
+    background:var(--primary);
+    border:2px solid var(--surface);
+    box-shadow:0 0 0 1px var(--primary);
+    cursor:pointer;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;border-radius:50%;
+    background:var(--primary);
+    border:2px solid var(--surface);
+    box-shadow:0 0 0 1px var(--primary);
+    cursor:pointer;
+  }
+  .slider-value{
+    font-family:var(--font-mono);
+    font-size:0.75rem;
+    color:var(--ink-secondary);
+  }
+
+  button{
+    width:100%;
+    margin-top:14px;
+    padding:12px;
+    border:none;
+    border-radius:var(--radius-sm);
+    background:var(--primary);
+    color:var(--primary-ink);
+    font-family:var(--font-sans);
+    font-weight:600;
+    font-size:0.875rem;
+    cursor:pointer;
+    transition:filter 0.15s ease, transform 0.1s ease;
+  }
+  button:hover{filter:brightness(1.08);}
+  button:active{transform:scale(0.99);}
+  button:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+
+  .output{margin-top:14px;}
+  .empty-hint{color:var(--ink-muted);font-size:0.8125rem;font-style:italic;}
+
+  /* ============================================================
+     CHUNKS
+     ============================================================ */
+  .chunk-item{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:var(--radius-sm);
+    padding:11px 13px;
+    margin-bottom:8px;
+    font-size:0.8125rem;
+    line-height:1.5;
+    opacity:0;
+    transform:translateY(4px);
+    animation:rise 0.35s cubic-bezier(0.16,1,0.3,1) forwards;
+  }
+  .chunk-item b{
+    font-family:var(--font-mono);
+    font-size:0.6875rem;
+    color:var(--primary);
+    display:block;
+    margin-bottom:4px;
+    letter-spacing:0.02em;
+  }
+  @keyframes rise{to{opacity:1;transform:translateY(0);}}
+
+  /* ============================================================
+     EMBEDDINGS — sequential heatmap strip
+     ============================================================ */
+  .embed-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:9px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .embed-row:last-child{border-bottom:none;}
+  .embed-row .chunk-label{
+    font-family:var(--font-mono);
+    font-size:0.75rem;
+    color:var(--ink-secondary);
+    width:64px;
+    flex-shrink:0;
+  }
+  .heatmap{display:flex;gap:2px;flex-wrap:wrap;flex:1;}
+  .heatmap .cell{
+    width:14px;height:22px;
+    border-radius:3px;
+    flex-shrink:0;
+    transform:scaleY(0);
+    transform-origin:bottom;
+    animation:grow 0.3s cubic-bezier(0.16,1,0.3,1) forwards;
+  }
+  @keyframes grow{to{transform:scaleY(1);}}
+  .embed-row .dims-more{
+    font-family:var(--font-mono);
+    font-size:0.6875rem;
+    color:var(--ink-muted);
+    flex-shrink:0;
+  }
+
+  /* ============================================================
+     RETRIEVAL — bar chart
+     ============================================================ */
+  .bar-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:7px 0;
+  }
+  .bar-row .chunk-label{
+    font-family:var(--font-mono);
+    font-size:0.75rem;
+    color:var(--ink-secondary);
+    width:64px;
+    flex-shrink:0;
+  }
+  .bar-track{
+    flex:1;
+    height:20px;
+    background:var(--surface-2);
+    border-radius:4px;
+    overflow:hidden;
+    position:relative;
+  }
+  .bar-fill{
+    height:100%;
+    width:0%;
+    border-radius:4px 2px 2px 4px;
+    transition:width 0.6s cubic-bezier(0.16,1,0.3,1);
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    padding-right:8px;
+  }
+  .bar-fill.good{background:var(--good);}
+  .bar-fill.weak{background:var(--critical);}
+  .bar-fill .score{
+    font-family:var(--font-mono);
+    font-size:0.6875rem;
+    font-weight:600;
+    color:#0a0a0a;
+    white-space:nowrap;
+  }
+  .best-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:0.6875rem;
+    font-weight:600;
+    color:var(--good);
+    background:var(--good-wash);
+    padding:2px 8px;
+    border-radius:99px;
+    margin-left:8px;
+  }
+
+  /* ============================================================
+     WITH / WITHOUT COMPARISON
+     ============================================================ */
+  .compare-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+  @media (max-width:560px){.compare-grid{grid-template-columns:1fr;}}
+  .compare-card{
+    border-radius:var(--radius-sm);
+    padding:16px;
+    font-size:0.8125rem;
+    line-height:1.55;
+  }
+  .compare-card h3{
+    font-size:0.8125rem;
+    margin:0 0 8px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .compare-card.without{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--ink-muted);
+  }
+  .compare-card.with{
+    background:var(--good-wash);
+    border:1px solid var(--good);
+    color:var(--ink-secondary);
+  }
+  .compare-card.with h3{color:var(--good);}
+
+  /* ============================================================
+     STAT TILES
+     ============================================================ */
+  .callout{
+    background:var(--primary-wash);
+    border:1px solid var(--primary);
+    border-radius:var(--radius-sm);
+    padding:14px 16px;
+    font-size:0.875rem;
+    line-height:1.55;
+    color:var(--ink);
+    margin-bottom:12px;
+  }
+  .stat-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+  }
+  @media (max-width:560px){.stat-grid{grid-template-columns:1fr;}}
+  .stat-tile{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:var(--radius-sm);
+    padding:12px 14px;
+  }
+  .stat-tile .stat-label{
+    font-size:0.6875rem;
+    color:var(--ink-muted);
+    margin-bottom:4px;
+  }
+  .stat-tile .stat-value{
+    font-family:var(--font-mono);
+    font-size:1.0625rem;
+    font-weight:600;
+    color:var(--ink);
+  }
+  .stat-tile .stat-value.good{color:var(--good);}
+  .stat-tile .stat-value.weak{color:var(--critical);}
+
+  footer{
+    text-align:center;
+    margin-top:32px;
+    font-size:0.8125rem;
+    color:var(--ink-muted);
+  }
+  footer a{color:var(--primary);text-decoration:none;}
+  footer a:hover{text-decoration:underline;}
 </style>
 </head>
 <body>
 <div class="container">
-<h1>🧠 RAG Playground</h1>
-<div class="subtitle">Learn RAG step-by-step with visual reasoning + comparisons</div>
 
-<div class="pipeline">
-<div id="p1">Input</div>
-<div id="p2">Chunking</div>
-<div id="p3">Embeddings</div>
-<div id="p4">Query</div>
-<div id="p5">Retrieval</div>
-<div id="p6">Final Output</div>
-</div>
+  <header>
+    <h1>🧠 RAG Playground</h1>
+    <p class="subtitle">Learn Retrieval-Augmented Generation step by step — watch chunking, vector embeddings, and similarity search actually happen, with the real numbers behind each stage.</p>
+  </header>
 
-<div class="card">
-<h2>1. Knowledge Base Input</h2>
-<div class="small">Enter text (simulates documents, PDFs, company knowledge)</div>
-<textarea id="textInput" placeholder="Paste ~100 words..."></textarea>
+  <div class="stepper" id="stepper">
+    <div class="track-fill" id="trackFill"></div>
+    <div class="step-node" id="p1"><div class="dot">1</div><div class="label">Input</div></div>
+    <div class="step-node" id="p2"><div class="dot">2</div><div class="label">Chunking</div></div>
+    <div class="step-node" id="p3"><div class="dot">3</div><div class="label">Embeddings</div></div>
+    <div class="step-node" id="p4"><div class="dot">4</div><div class="label">Query</div></div>
+    <div class="step-node" id="p5"><div class="dot">5</div><div class="label">Retrieval</div></div>
+    <div class="step-node" id="p6"><div class="dot">6</div><div class="label">Output</div></div>
+  </div>
 
-<div class="small">Select number of chunks (controls retrieval granularity)</div>
-<input type="range" min="3" max="15" value="5" id="chunkSlider" oninput="syncSlider()">
-<div class="small">Chunks: <span id="chunkVal">5</span></div>
+  <div class="card">
+    <h2><span class="step-num">1</span> Knowledge Base Input</h2>
+    <p class="hint">Paste the text a real system would retrieve from — documents, a wiki page, product docs. This stands in for your knowledge base.</p>
+    <textarea id="textInput">Retrieval-Augmented Generation combines a search step with a language model. When a user asks a question, the system first retrieves the most relevant passages from a knowledge base using vector similarity, then passes those passages to the model as context. This grounds the model's answer in real source material instead of relying only on what it memorized during training. RAG is widely used for customer support bots, internal documentation search, and any application where answers must be traceable to a source. The two most important design decisions are how text gets chunked and which embedding model captures meaning accurately.</textarea>
 
-<button onclick="prepareChunks()">Generate Chunking</button>
-<div id="chunkOut" class="output"></div>
-<div id="chunkExplain" class="output small"></div>
-</div>
+    <p class="hint" style="margin-top:14px;">Number of chunks — controls retrieval granularity</p>
+    <input type="range" min="3" max="15" value="5" id="chunkSlider" oninput="syncSlider()">
+    <div class="slider-value">Chunks: <span id="chunkVal">5</span></div>
 
-<div class="card">
-<h2>2. Vector Embeddings (CORE CONCEPT)</h2>
-<div class="small">Text is converted into high-dimensional numeric vectors capturing meaning (not words)</div>
-<button onclick="generateEmbeddings()">Generate Embeddings</button>
-<div id="embedOut" class="output"></div>
-<div id="embedExplain" class="output small"></div>
-</div>
+    <button onclick="prepareChunks()">Generate Chunking →</button>
+    <div id="chunkOut" class="output"></div>
+    <div id="chunkExplain" class="explain" style="display:none;"></div>
+  </div>
 
-<div class="card">
-<h2>3. Query Input</h2>
-<input id="queryInput" placeholder="Ask a question">
-<button onclick="runRAG()">Run RAG System</button>
-<div id="queryOut" class="output"></div>
-</div>
+  <div class="card">
+    <h2><span class="step-num">2</span> Vector Embeddings <span style="color:var(--ink-muted);font-weight:400;font-size:0.75rem;">— the core concept</span></h2>
+    <p class="hint">Each chunk becomes a vector — a list of numbers capturing its meaning, not its words. Similar meaning = nearby vectors. Every colored cell below is one dimension of that vector.</p>
+    <button onclick="generateEmbeddings()">Generate Embeddings →</button>
+    <div id="embedOut" class="output"></div>
+    <div id="embedExplain" class="explain" style="display:none;"></div>
+  </div>
 
-<div class="card">
-<h2>4. Retrieval (Vector Similarity Search)</h2>
-<div id="rankOut" class="output"></div>
-</div>
+  <div class="card">
+    <h2><span class="step-num">3</span> Query</h2>
+    <p class="hint">Ask a question. It gets embedded the same way the chunks were, so it can be compared against them.</p>
+    <input id="queryInput" value="How does RAG make answers more trustworthy?" placeholder="Ask a question about the text above…">
+    <button onclick="runRAG()">Run RAG System →</button>
+    <div id="queryOut" class="output"></div>
+  </div>
 
-<div class="card grid">
-<div>
-<h3>❌ Without RAG</h3>
-<div id="noRag" class="output"></div>
-</div>
-<div>
-<h3>✅ With RAG</h3>
-<div id="rag" class="output"></div>
-</div>
-</div>
+  <div class="card">
+    <h2><span class="step-num">4</span> Retrieval <span style="color:var(--ink-muted);font-weight:400;font-size:0.75rem;">— vector similarity search</span></h2>
+    <p class="hint">Every chunk is scored against the query by cosine similarity. The closer to 1.0, the more relevant.</p>
+    <div id="rankOut" class="output"><span class="empty-hint">Run the RAG system above to see scores.</span></div>
+  </div>
 
-<div class="card">
-<h2>5. Final Output + Insight</h2>
-<div id="finalOut" class="output"></div>
-<div id="insightOut" class="output"></div>
-<div id="metricsOut" class="output"></div>
-</div>
+  <div class="card">
+    <h2><span class="step-num">5</span> Without RAG vs. With RAG</h2>
+    <div class="compare-grid">
+      <div class="compare-card without">
+        <h3>✕ Without RAG</h3>
+        <div id="noRag">The model answers from memory alone — no grounding, higher risk of a vague or invented answer.</div>
+      </div>
+      <div class="compare-card with">
+        <h3>✓ With RAG</h3>
+        <div id="rag"><span class="empty-hint" style="color:inherit;opacity:0.7;">Waiting for retrieval…</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">6</span> Final Output &amp; Insight</h2>
+    <div id="finalOut" class="output"><span class="empty-hint">Nothing generated yet.</span></div>
+    <div id="insightOut" class="output" style="margin-top:10px;"></div>
+    <div id="metricsOut" class="output" style="margin-top:14px;"></div>
+  </div>
+
+  <footer>
+    Built by <a href="https://rajangupta.ca" target="_blank" rel="noopener">Rajan Gupta</a> · toy embeddings for teaching clarity, not a production retriever
+  </footer>
 
 </div>
 
 <script>
 let chunks=[], embeddings=[], scores=[];
+let maxStage=0;
 
 function syncSlider(){
   document.getElementById('chunkVal').innerText = document.getElementById('chunkSlider').value;
 }
 
 function setActive(i){
-  for(let j=1;j<=6;j++) document.getElementById('p'+j).classList.remove('active');
-  document.getElementById('p'+i).classList.add('active');
+  maxStage = Math.max(maxStage, i);
+  for(let j=1;j<=6;j++){
+    const node = document.getElementById('p'+j);
+    node.classList.remove('active','done');
+    if(j < i || (j <= maxStage && j !== i)) node.classList.add('done');
+    if(j === i) node.classList.add('active');
+  }
+  const pct = ((i-1)/5)*100;
+  document.getElementById('trackFill').style.width = pct + '%';
 }
 
 function fakeEmbedding(t){
-  return t.toLowerCase().split(' ').map(w=>w.charCodeAt(0)%9);
+  return t.toLowerCase().split(' ').filter(Boolean).map(w=>w.charCodeAt(0)%9);
 }
 
 function cosine(a,b){
@@ -119,74 +574,115 @@ function cosine(a,b){
   return d/(Math.sqrt(ma)*Math.sqrt(mb)||1);
 }
 
+function seqColor(v){
+  const steps = ['--seq-0','--seq-1','--seq-2','--seq-3','--seq-4','--seq-5','--seq-6','--seq-7','--seq-8'];
+  const idx = Math.max(0, Math.min(8, v));
+  return `var(${steps[idx]})`;
+}
+
 function prepareChunks(){
   setActive(2);
-  const text=document.getElementById('textInput').value;
+  const text=document.getElementById('textInput').value.trim();
   const count=parseInt(document.getElementById('chunkSlider').value);
-  const words=text.split(' ');
+  const words=text.split(/\s+/).filter(Boolean);
   const size=Math.ceil(words.length/count);
 
   chunks=[];
-  for(let i=0;i<count;i++) chunks.push(words.slice(i*size,(i+1)*size).join(' '));
+  for(let i=0;i<count;i++){
+    const slice = words.slice(i*size,(i+1)*size).join(' ');
+    if(slice) chunks.push(slice);
+  }
 
   document.getElementById('chunkOut').innerHTML=
-    chunks.map((c,i)=>`<b>Chunk ${i+1}:</b> ${c}`).join('<br><br>');
+    chunks.map((c,i)=>`<div class="chunk-item" style="animation-delay:${i*0.04}s"><b>CHUNK ${i+1}</b>${c}</div>`).join('');
 
-  document.getElementById('chunkExplain').innerHTML=
-    "Chunking improves retrieval by controlling context granularity. Too few = noise, too many = fragmentation.";
+  const explain = document.getElementById('chunkExplain');
+  explain.style.display='block';
+  explain.innerHTML=
+    "Chunking trades off context granularity: too few chunks and each one is noisy and unfocused; too many and you fragment ideas across chunks the retriever can't recombine.";
+
+  // reset downstream stages
+  embeddings=[]; scores=[];
+  document.getElementById('embedOut').innerHTML='';
+  document.getElementById('embedExplain').style.display='none';
 }
 
 function generateEmbeddings(){
+  if(chunks.length===0){ prepareChunks(); }
   setActive(3);
   embeddings=chunks.map(c=>fakeEmbedding(c));
 
   document.getElementById('embedOut').innerHTML=
-    embeddings.map((e,i)=>`Chunk ${i+1} → [${e.slice(0,8).join(' ')}...]`).join('<br>');
+    embeddings.map((e,i)=>{
+      const shown = e.slice(0,18);
+      const cells = shown.map((v,vi)=>`<div class="cell" style="background:${seqColor(v)};animation-delay:${(i*0.03)+(vi*0.012)}s"></div>`).join('');
+      const more = e.length>18 ? `<span class="dims-more">+${e.length-18} dims</span>` : '';
+      return `<div class="embed-row"><span class="chunk-label">Chunk ${i+1}</span><div class="heatmap">${cells}</div>${more}</div>`;
+    }).join('');
 
-  document.getElementById('embedExplain').innerHTML=
-    "Each chunk becomes a vector in semantic space. Similar meaning = closer vectors. This enables search beyond keywords.";
+  const explain = document.getElementById('embedExplain');
+  explain.style.display='block';
+  explain.innerHTML=
+    "Each cell is one dimension of the chunk's vector — lighter means a higher value in that dimension. Real embedding models use hundreds of dimensions learned from data; this uses a simplified one so the shape is visible at a glance. Chunks about similar ideas end up with similar-looking strips.";
 }
 
 function runRAG(){
+  if(embeddings.length===0){ generateEmbeddings(); }
   setActive(4);
 
-  const query=document.getElementById('queryInput').value;
+  const query=document.getElementById('queryInput').value.trim();
   const qEmb=fakeEmbedding(query);
 
   document.getElementById('queryOut').innerHTML=
-    "Query Vector → ["+qEmb.slice(0,10).join(' ')+"]";
+    `<div class="chunk-item" style="animation:none;opacity:1;"><b>QUERY VECTOR</b><span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--ink-secondary);">[${qEmb.slice(0,12).join(', ')}${qEmb.length>12?', …':''}]</span></div>`;
 
+  setActive(5);
   scores=embeddings.map((e,i)=>({i,score:cosine(qEmb,e)}));
   scores.sort((a,b)=>b.score-a.score);
 
-  document.getElementById('rankOut').innerHTML=
-    scores.map(s=>`Chunk ${s.i+1} → ${s.score.toFixed(3)}`).join('<br>');
+  const maxScore = Math.max(...scores.map(s=>s.score), 0.001);
+  document.getElementById('rankOut').innerHTML =
+    scores.map((s,rank)=>{
+      const pct = Math.max(4, (s.score/maxScore)*100);
+      const good = s.score > 0.5;
+      const badge = rank===0 ? '<span class="best-badge">★ Best match</span>' : '';
+      return `<div class="bar-row">
+        <span class="chunk-label">Chunk ${s.i+1}</span>
+        <div class="bar-track"><div class="bar-fill ${good?'good':'weak'}" data-w="${pct}"><span class="score">${s.score.toFixed(3)}</span></div></div>
+      </div>${rank===0?`<div style="text-align:right;margin:-4px 0 4px;">${badge}</div>`:''}`;
+    }).join('');
 
-  // Without RAG
-  document.getElementById('noRag').innerHTML=
-    "Generic LLM response without context → may hallucinate or be vague.";
+  // trigger the width transition on the next frame
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('.bar-fill').forEach(el=>{
+      el.style.width = el.dataset.w + '%';
+    });
+  });
 
   const top=scores[0];
   const best=chunks[top.i];
 
-  document.getElementById('rag').innerHTML=
-    best;
-
-  // Final output simulation
-  document.getElementById('finalOut').innerHTML=
-    "Final Answer (LLM + Retrieved Context): " + best;
-
-  document.getElementById('insightOut').innerHTML=
-    "Why this chunk? It has the highest semantic similarity in vector space + best contextual overlap with query.";
-
-  document.getElementById('metricsOut').innerHTML=
-    `Similarity Score: ${top.score.toFixed(3)}<br>`+
-    `Retrieval Quality: ${top.score>0.5?'Good':'Weak'}<br>`+
-    `Key Insight: RAG improves factual grounding by injecting relevant context into LLM input.`;
+  document.getElementById('rag').innerHTML =
+    `<strong>Grounded in Chunk ${top.i+1}:</strong> "${best}"`;
 
   setActive(6);
-}
-</script>
+  document.getElementById('finalOut').innerHTML =
+    `<div class="callout"><strong>Final answer (LLM + retrieved context):</strong><br>${best}</div>`;
 
+  document.getElementById('insightOut').innerHTML =
+    `<p class="hint" style="margin:0;">Why this chunk? It has the highest cosine similarity to the query vector — the best semantic overlap of anything in the knowledge base.</p>`;
+
+  const quality = top.score>0.5 ? 'good' : 'weak';
+  document.getElementById('metricsOut').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="stat-label">Similarity score</div><div class="stat-value">${top.score.toFixed(3)}</div></div>
+      <div class="stat-tile"><div class="stat-label">Retrieval quality</div><div class="stat-value ${quality}">${quality==='good'?'Good':'Weak'}</div></div>
+      <div class="stat-tile"><div class="stat-label">Chunks searched</div><div class="stat-value">${chunks.length}</div></div>
+    </div>`;
+}
+
+// Prime the visible starting state
+setActive(1);
+</script>
 </body>
 </html>

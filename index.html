@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0d0d0d">
-<title>RAG Playground — The Full Retrieval-Augmented Generation Pipeline</title>
-<meta name="description" content="An interactive simulator covering the full RAG pipeline: multi-format ingestion, chunking strategies, TF-IDF embeddings, hybrid search with reranking, prompt construction, guardrails, and observability.">
+<title>RAG Playground: The Full Retrieval-Augmented Generation Pipeline</title>
+<meta name="description" content="An interactive simulator built for education, covering the full RAG pipeline: multi-format ingestion, seven chunking strategies, TF-IDF embeddings, hybrid search with reranking, prompt construction, guardrails, and observability.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -55,6 +55,10 @@
   header{text-align:center;margin-bottom:18px;}
   header h1{font-size:clamp(1.5rem,3.6vw,2rem);font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;}
   header .subtitle{color:var(--ink-secondary);font-size:0.875rem;max-width:560px;margin:0 auto;line-height:1.5;}
+  .edu-badge{
+    display:inline-flex;align-items:center;gap:5px;font-size:0.6875rem;font-weight:600;
+    color:var(--warning);background:var(--warning-wash);padding:3px 10px;border-radius:99px;margin-top:10px;
+  }
 
   /* ---------- status bar ---------- */
   .status-bar{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:16px 0;}
@@ -200,9 +204,28 @@
   .chunk-item .c-head{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap;}
   .chunk-item b{font-family:var(--font-mono);font-size:0.6875rem;color:var(--primary);letter-spacing:0.02em;}
   .src-tag{font-family:var(--font-mono);font-size:0.625rem;color:var(--ink-muted);background:var(--surface-3);padding:1px 6px;border-radius:99px;}
+  .reason-tag{font-family:var(--font-mono);font-size:0.625rem;padding:1px 7px;border-radius:99px;}
+  .reason-tag.topic{color:var(--warning);background:var(--warning-wash);}
+  .reason-tag.size{color:var(--ink-muted);background:var(--surface-3);}
+  .reason-tag.block-header{color:var(--primary);background:var(--primary-wash);}
+  .reason-tag.block-code{color:#6da7ec;background:rgba(109,167,236,0.14);}
+  .reason-tag.block-list{color:var(--good);background:var(--good-wash);}
+  .reason-tag.block-para{color:var(--ink-muted);background:var(--surface-3);}
+
+  /* ---------- hierarchical parent/child grouping ---------- */
+  .parent-group{
+    background:var(--surface-2);border:1px dashed var(--border-strong);border-radius:var(--radius-sm);
+    padding:12px;margin-bottom:10px;
+    opacity:0;transform:translateY(4px);animation:rise 0.35s ease forwards;
+  }
+  .parent-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .parent-tag{font-family:var(--font-mono);font-size:0.6875rem;color:var(--primary);font-weight:600;}
+  .parent-preview{font-size:0.75rem;color:var(--ink-muted);font-style:italic;margin-bottom:10px;line-height:1.5;}
+  .child-list{border-left:2px solid var(--border-strong);padding-left:14px;margin-left:4px;display:flex;flex-direction:column;gap:6px;}
+  .child-list .chunk-item{margin-bottom:0;}
 
   /* ---------- embeddings heatmap ---------- */
-  .embed-row{padding:10px 0;border-bottom:1px solid var(--border);}
+  .embed-row{padding:10px 0;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
   .embed-row:last-child{border-bottom:none;}
   .embed-row .chunk-label{font-family:var(--font-mono);font-size:0.75rem;color:var(--ink-secondary);margin-bottom:6px;display:block;}
   .heatmap{display:flex;gap:3px;flex-wrap:wrap;}
@@ -213,6 +236,8 @@
   .term-cell .swatch{width:30px;height:22px;border-radius:4px;}
   .term-cell .term{font-family:var(--font-mono);font-size:0.5625rem;color:var(--ink-muted);max-width:34px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   @keyframes pop{to{transform:scale(1);}}
+  .scan-sweep{position:absolute;top:0;left:-40%;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(144,133,233,0.16),transparent);animation:sweep 0.8s ease forwards;pointer-events:none;}
+  @keyframes sweep{to{left:110%;}}
 
   /* ---------- index table ---------- */
   .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
@@ -228,11 +253,27 @@
   table.index-table td{padding:8px 10px;border-bottom:1px solid var(--border);font-family:var(--font-mono);}
   table.index-table tr:last-child td{border-bottom:none;}
 
+  /* ---------- indexing flow animation ---------- */
+  .index-flow{
+    display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:16px;
+    background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);
+    overflow:hidden;position:relative;height:44px;
+  }
+  .index-flow .flow-label{font-size:0.6875rem;color:var(--ink-muted);font-family:var(--font-mono);flex-shrink:0;}
+  .index-flow .flow-track{flex:1;position:relative;height:100%;}
+  .index-dot{position:absolute;top:50%;left:0;width:9px;height:9px;border-radius:3px;background:var(--primary);opacity:0;animation:flyIn 1s cubic-bezier(0.4,0,0.2,1) forwards;}
+  @keyframes flyIn{
+    0%{opacity:0;transform:translateY(-50%) translateX(0) scale(0.6);}
+    12%{opacity:1;transform:translateY(-50%) translateX(0) scale(1);}
+    100%{opacity:0;transform:translateY(-50%) translateX(calc(100% - 12px)) scale(0.6);}
+  }
+  .index-flow .flow-end{font-size:1.2rem;flex-shrink:0;}
+
   /* ---------- retrieval bars ---------- */
   .bar-row{padding:8px 0;}
   .bar-row-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
   .bar-row .chunk-label{font-family:var(--font-mono);font-size:0.75rem;color:var(--ink-secondary);}
-  .bar-row .rank-move{font-size:0.6875rem;font-family:var(--font-mono);}
+  .bar-row .rank-move{font-size:0.6875rem;font-family:var(--font-mono);display:inline-block;animation:pop 0.3s ease forwards;transform:scale(0);}
   .rank-move.up{color:var(--good);}
   .rank-move.down{color:var(--critical);}
   .bar-track{height:18px;background:var(--surface-2);border-radius:4px;overflow:hidden;position:relative;display:flex;}
@@ -242,7 +283,7 @@
   .bar-legend{display:flex;gap:14px;margin-bottom:10px;font-size:0.6875rem;color:var(--ink-muted);}
   .bar-legend span{display:inline-flex;align-items:center;gap:5px;}
   .bar-legend .sw{width:9px;height:9px;border-radius:2px;}
-  .best-badge{display:inline-flex;align-items:center;gap:4px;font-size:0.6875rem;font-weight:600;color:var(--good);background:var(--good-wash);padding:2px 8px;border-radius:99px;}
+  .best-badge{display:inline-flex;align-items:center;gap:4px;font-size:0.6875rem;font-weight:600;color:var(--good);background:var(--good-wash);padding:2px 8px;border-radius:99px;animation:pop 0.35s cubic-bezier(0.16,1,0.3,1) forwards;transform:scale(0);}
   .score-label{font-family:var(--font-mono);font-size:0.6875rem;color:var(--ink-secondary);margin-left:8px;}
 
   /* ---------- prompt box ---------- */
@@ -255,6 +296,8 @@
   .prompt-box .ctx-label{color:#6da7ec;}
   .prompt-box .q-label{color:var(--good);}
   .copy-btn{position:absolute;top:10px;right:10px;font-size:0.6875rem;padding:5px 10px;margin:0;}
+  .ctx-block{display:block;opacity:0;transform:translateX(-8px);animation:ctxIn 0.4s cubic-bezier(0.16,1,0.3,1) forwards;}
+  @keyframes ctxIn{to{opacity:1;transform:translateX(0);}}
 
   /* ---------- generation ---------- */
   .sim-badge{
@@ -263,22 +306,30 @@
   }
   .callout{background:var(--primary-wash);border:1px solid var(--primary);border-radius:var(--radius-sm);padding:14px 16px;font-size:0.875rem;line-height:1.6;color:var(--ink);}
   .callout .cite{font-family:var(--font-mono);font-size:0.6875rem;color:var(--primary);}
+  .cite-row{margin-top:10px;transition:opacity 0.4s ease;}
+  .typewriter::after{content:'\258C';display:inline-block;color:var(--primary);animation:blink 0.9s step-start infinite;margin-left:1px;}
+  .typewriter.done::after{display:none;}
+  @keyframes blink{50%{opacity:0;}}
 
   /* ---------- guardrails ---------- */
   .guardrail-item{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--border);}
   .guardrail-item:first-child{border-top:none;padding-top:0;}
-  .g-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.875rem;}
+  .g-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.875rem;transition:all 0.25s ease;}
+  .g-icon.pending{background:var(--surface-3);color:var(--ink-muted);}
   .g-icon.pass{background:var(--good-wash);color:var(--good);}
   .g-icon.warn{background:var(--warning-wash);color:var(--warning);}
   .g-icon.fail{background:var(--critical-wash);color:var(--critical);}
+  .g-body{flex:1;}
   .g-body .g-title{font-size:0.875rem;font-weight:600;}
-  .g-body .g-desc{font-size:0.8125rem;color:var(--ink-muted);margin-top:2px;line-height:1.5;}
+  .g-body .g-desc{font-size:0.8125rem;color:var(--ink-muted);margin-top:2px;line-height:1.5;min-height:1.2em;}
+  .spinner{width:12px;height:12px;border:2px solid var(--border-strong);border-top-color:var(--ink-muted);border-radius:50%;animation:spin 0.7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
 
   /* ---------- observability ---------- */
   .trace-row{display:grid;grid-template-columns:120px 1fr 56px;align-items:center;gap:10px;padding:6px 0;font-size:0.75rem;}
   .trace-row .t-name{color:var(--ink-secondary);}
   .trace-row .t-bar-track{height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden;}
-  .trace-row .t-bar-fill{height:100%;background:var(--primary);border-radius:4px;transition:width 0.5s ease;}
+  .trace-row .t-bar-fill{height:100%;width:0%;background:var(--primary);border-radius:4px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);}
   .trace-row .t-ms{font-family:var(--font-mono);color:var(--ink-muted);text-align:right;}
   .feedback-row{display:flex;align-items:center;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
   .fb-btn{background:var(--surface-2);border:1px solid var(--border);color:var(--ink-secondary);padding:8px 14px;font-size:0.8125rem;margin:0;}
@@ -306,7 +357,8 @@
 
   <header>
     <h1>🧠 RAG Playground</h1>
-    <p class="subtitle">The full Retrieval-Augmented Generation pipeline, made visible — ingest real files, pick a chunking strategy, watch real TF-IDF vectors and hybrid search run, and see every guardrail check along the way.</p>
+    <p class="subtitle">The full Retrieval-Augmented Generation pipeline, made visible. Ingest real files, pick a chunking strategy, watch real TF-IDF vectors and hybrid search run, and see every guardrail check along the way.</p>
+    <div class="edu-badge">🎓 Built for education, not production use</div>
   </header>
 
   <div class="status-bar" id="statusBar"></div>
@@ -318,20 +370,40 @@
     <div class="card">
       <div class="eyebrow">Stage 1 of 9</div>
       <h2>📄 Knowledge Base</h2>
-      <p class="hint">Paste text directly, or upload real files — PDF, DOCX, HTML, or TXT, up to 5MB each. Everything is parsed in your browser; nothing is uploaded anywhere.</p>
+      <p class="hint">Paste text directly, or upload real files: PDF, DOCX, HTML, or TXT, up to 5MB each. Everything is parsed in your browser, and nothing is uploaded anywhere.</p>
 
       <div class="section-label">Paste text</div>
-      <textarea id="textInput" placeholder="Paste a document, wiki page, or notes…">Retrieval-Augmented Generation combines a search step with a language model. When a user asks a question, the system first retrieves the most relevant passages from a knowledge base using vector similarity, then passes those passages to the model as context. This grounds the model's answer in real source material instead of relying only on what it memorized during training.
+      <textarea id="textInput" placeholder="Paste a document, wiki page, or notes..."># What Is Retrieval-Augmented Generation?
+
+Retrieval-Augmented Generation combines a search step with a language model. When a user asks a question, the system first retrieves the most relevant passages from a knowledge base using vector similarity, then passes those passages to the model as context. This grounds the model's answer in real source material instead of relying only on what it memorized during training.
 
 RAG is widely used for customer support bots, internal documentation search, and any application where answers must be traceable to a source. The two most important design decisions are how text gets chunked and which retrieval strategy is used to find the right passages.
 
-Hybrid search combines dense vector similarity with sparse keyword scoring like BM25, because pure vector search can miss exact terms — product codes, names, acronyms — that keyword search catches easily. Reranking adds a second, more expensive pass over the top candidates to improve precision before anything reaches the language model.</textarea>
+## Why Hybrid Search Matters
+
+Hybrid search combines dense vector similarity with sparse keyword scoring like BM25. Pure vector search can miss exact terms such as product codes, names, and acronyms that keyword search catches easily. Reranking adds a second, more expensive pass over the top candidates to improve precision before anything reaches the language model.
+
+Production RAG systems typically combine a few techniques together:
+- Chunking strategy: how documents get split before indexing
+- Hybrid search: blending dense and sparse retrieval
+- Reranking: a second, more accurate pass over the top candidates
+- Guardrails: checks that run before an answer ever ships
+
+A minimal similarity function looks something like this:
+
+```
+function cosine(a, b) {
+  return dot(a, b) / (norm(a) * norm(b));
+}
+```
+
+None of these techniques work in isolation. A great embedding model cannot fix chunks that were split in the wrong place, and a great retriever cannot fix an answer that skips the guardrail checks.</textarea>
 
       <div class="section-label">Or upload files</div>
       <div class="dropzone" id="dropzone">
         <div class="dz-icon">📎</div>
         <div class="dz-text">Drop files here, or click to browse</div>
-        <div class="dz-sub">.pdf · .docx · .html · .txt — up to 5MB each</div>
+        <div class="dz-sub">.pdf, .docx, .html, .txt (up to 5MB each)</div>
       </div>
       <input type="file" id="fileInput" multiple accept=".pdf,.docx,.html,.htm,.txt" style="display:none;">
       <div class="file-list" id="fileList"></div>
@@ -348,7 +420,7 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
     <div class="card">
       <div class="eyebrow">Stage 2 of 9</div>
       <h2>✂️ Chunking</h2>
-      <p class="hint">A knowledge base gets split into smaller passages before indexing — the strategy controls how much context each chunk carries.</p>
+      <p class="hint">A knowledge base gets split into smaller passages before indexing. The strategy controls how much context each chunk carries, and where the boundaries land.</p>
 
       <label class="field-label">Chunking strategy</label>
       <select id="chunkStrategy" onchange="onStrategyChange()">
@@ -356,10 +428,13 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
         <option value="sliding">Sliding window (overlapping)</option>
         <option value="sentence">Sentence-based</option>
         <option value="recursive" selected>Recursive / paragraph-aware</option>
+        <option value="semantic">Semantic (topic-shift aware)</option>
+        <option value="hierarchical">Hierarchical (parent-child)</option>
+        <option value="docaware">Document-type-aware</option>
       </select>
 
       <div class="field-row">
-        <div>
+        <div id="sizeField">
           <label class="field-label" id="sizeLabel">Target size (words)</label>
           <input type="range" min="15" max="150" value="60" id="sizeSlider" oninput="syncSliders()">
           <div class="slider-value"><span id="sizeVal">60</span> words</div>
@@ -368,6 +443,23 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
           <label class="field-label">Overlap (words)</label>
           <input type="range" min="0" max="50" value="15" id="overlapSlider" oninput="syncSliders()">
           <div class="slider-value"><span id="overlapVal">15</span> words</div>
+        </div>
+        <div id="semanticField" style="display:none;">
+          <label class="field-label">Topic similarity threshold</label>
+          <input type="range" min="0" max="100" value="25" id="simSlider" oninput="syncSliders()">
+          <div class="slider-value"><span id="simVal">25</span>% (lower means more, smaller chunks)</div>
+        </div>
+      </div>
+      <div class="field-row" id="hierarchyField" style="display:none;">
+        <div>
+          <label class="field-label">Parent size (words)</label>
+          <input type="range" min="60" max="300" value="150" id="parentSlider" oninput="syncSliders()">
+          <div class="slider-value"><span id="parentVal">150</span> words</div>
+        </div>
+        <div>
+          <label class="field-label">Child size (words)</label>
+          <input type="range" min="15" max="80" value="40" id="childSlider" oninput="syncSliders()">
+          <div class="slider-value"><span id="childVal">40</span> words</div>
         </div>
       </div>
 
@@ -387,7 +479,7 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
     <div class="card">
       <div class="eyebrow">Stage 3 of 9</div>
       <h2>🧮 Vector Embeddings</h2>
-      <p class="hint">Each chunk becomes a real <strong>TF-IDF vector</strong> — a classic lexical vector where a term's weight reflects how distinctive it is to that chunk. (Not a neural embedding model — those learn dense vectors from training data; TF-IDF is computed directly from your text, but it's a real, working vector representation with real cosine similarity.)</p>
+      <p class="hint">Each chunk becomes a real <strong>TF-IDF vector</strong>: a classic lexical vector where a term's weight reflects how distinctive it is to that chunk. (This is not a neural embedding model. Those learn dense vectors from training data; TF-IDF is computed directly from your text, but it is a real, working vector representation with real cosine similarity.)</p>
       <button class="full" onclick="runEmbeddings()">Generate Embeddings →</button>
       <div id="embedOut" class="output"></div>
       <div id="embedExplain" class="explain" style="display:none;"></div>
@@ -404,7 +496,7 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
     <div class="card">
       <div class="eyebrow">Stage 4 of 9</div>
       <h2>🗂️ Indexing &amp; Storage</h2>
-      <p class="hint">Every chunk's vector, text, and source metadata gets written into an index — what a vector database actually stores and searches over.</p>
+      <p class="hint">Every chunk's vector, text, and source metadata gets written into an index: what a vector database actually stores and searches over.</p>
       <button class="full" onclick="runIndexing()">Build Index →</button>
       <div id="indexOut" class="output"></div>
     </div>
@@ -420,10 +512,10 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
     <div class="card">
       <div class="eyebrow">Stage 5 of 9</div>
       <h2>🔍 Retrieval</h2>
-      <p class="hint">Ask a question. It's scored against every chunk in the index, then optionally filtered, blended with keyword search, and reranked.</p>
+      <p class="hint">Ask a question. It is scored against every chunk in the index, then optionally filtered, blended with keyword search, and reranked.</p>
 
       <label class="field-label">Query</label>
-      <input id="queryInput" value="How does hybrid search improve retrieval quality?" placeholder="Ask a question about the text above…">
+      <input id="queryInput" value="How does hybrid search improve retrieval quality?" placeholder="Ask a question about the text above...">
 
       <label class="field-label">Filter by source</label>
       <select id="sourceFilter"><option value="">All sources</option></select>
@@ -436,7 +528,7 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
         <label class="switch"><input type="checkbox" id="hybridToggle" checked onchange="syncSliders()"><span class="track"></span></label>
       </div>
       <div id="alphaField">
-        <label class="field-label">Dense ↔ Sparse blend</label>
+        <label class="field-label">Dense &harr; Sparse blend</label>
         <input type="range" min="0" max="100" value="55" id="alphaSlider" oninput="syncSliders()">
         <div class="slider-value"><span id="alphaVal">55</span>% dense (vector) / <span id="alphaValInv">45</span>% sparse (keyword)</div>
       </div>
@@ -467,7 +559,7 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
     <div class="card">
       <div class="eyebrow">Stage 6 of 9</div>
       <h2>🧩 Context Assembly / Prompt Construction</h2>
-      <p class="hint">The retrieved chunks get assembled into the actual prompt a language model would receive — system instructions, numbered context, then the question.</p>
+      <p class="hint">The retrieved chunks get assembled into the actual prompt a language model would receive: system instructions, numbered context, then the question.</p>
       <button class="full" onclick="runContextAssembly()">Assemble Prompt →</button>
       <div id="promptOut" class="output"></div>
     </div>
@@ -483,8 +575,8 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
     <div class="card">
       <div class="eyebrow">Stage 7 of 9</div>
       <h2>✨ Generation</h2>
-      <span class="sim-badge">⚠ Simulated — no live LLM call</span>
-      <p class="hint">This demo runs fully client-side with no backend and no embedded API key, so this step assembles an extractive answer from the retrieved context instead of calling a real model. In production, the assembled prompt from Stage 6 would go straight to an LLM API (GPT, Claude, Gemini) — everything upstream of this step works exactly as shown.</p>
+      <span class="sim-badge">⚠ Simulated: no live LLM call</span>
+      <p class="hint">This demo runs fully client-side with no backend and no embedded API key, so this step assembles an extractive answer from the retrieved context instead of calling a real model. In production, the assembled prompt from Stage 6 would go straight to an LLM API (GPT, Claude, Gemini). Everything upstream of this step works exactly as shown.</p>
       <button class="full" onclick="runGeneration()">Generate Answer →</button>
       <div id="genOut" class="output"></div>
     </div>
@@ -500,7 +592,7 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
     <div class="card">
       <div class="eyebrow">Stage 8 of 9</div>
       <h2>🛡️ Output &amp; Guardrails</h2>
-      <p class="hint">Before an answer ships, production systems run checks like these — groundedness, confidence, and basic content safety.</p>
+      <p class="hint">Before an answer ships, production systems run checks like these: groundedness, confidence, and basic content safety.</p>
       <button class="full" onclick="runGuardrails()">Run Guardrail Checks →</button>
       <div id="guardrailOut" class="output"></div>
     </div>
@@ -516,7 +608,7 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
     <div class="card">
       <div class="eyebrow">Stage 9 of 9</div>
       <h2>📊 Observability &amp; Feedback Loop</h2>
-      <p class="hint">Every stage above is timed — a rough proxy for what a real trace would show. Feedback closes the loop and is what production systems use to catch regressions.</p>
+      <p class="hint">Every stage above is timed, a rough proxy for what a real trace would show. Feedback closes the loop and is what production systems use to catch regressions.</p>
       <button class="full" onclick="runObservability()">View Trace →</button>
       <div id="obsOut" class="output"></div>
     </div>
@@ -528,7 +620,7 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
   </section>
 
   <footer>
-    Built by <a href="https://rajangupta.ca" target="_blank" rel="noopener">Rajan Gupta</a> · real TF-IDF/BM25/reranking math, simulated generation, no backend
+    Built by <a href="https://rajangupta.ca" target="_blank" rel="noopener">Rajan Gupta</a> for education. Real TF-IDF/BM25/reranking math, simulated generation, no backend.
   </footer>
 
 </div>
@@ -541,10 +633,9 @@ Hybrid search combines dense vector similarity with sparse keyword scoring like 
    ============================================================ */
 const state = {
   documents: [],      // {id, name, type, size, text}
-  chunks: [],          // {id, text, source, index}
+  chunks: [],          // {id, text, source, index, ...strategy-specific fields}
   vocab: [], idf: new Map(), avgLen: 0, df: new Map(),
   chunkVectors: [],     // Map term->weight, aligned to chunks
-  chunkTermCounts: [],  // for BM25
   query: '', queryVector: null, queryTerms: [],
   retrieval: [],        // ranked results
   reranked: false,
@@ -553,6 +644,7 @@ const state = {
   guardrails: [],
   timings: {},
   maxTabReached: 1,
+  lastStrategy: 'recursive',
 };
 
 /* ============================================================
@@ -613,12 +705,13 @@ function showToast(msg){
 }
 
 /* ============================================================
-   TEXT UTILITIES — tokenization, TF-IDF, BM25
+   TEXT UTILITIES: tokenization, TF-IDF, BM25
    ============================================================ */
 const STOPWORDS = new Set(['the','a','an','and','or','but','is','are','was','were','be','been','being','to','of','in','on','for','with','as','by','at','from','this','that','these','those','it','its','into','than','then','so','if','not','no','do','does','did','has','have','had','can','could','will','would','should','may','might','must','shall','you','your','i','we','our','they','their']);
 
 function tokenize(text){ return (text.toLowerCase().match(/[a-z0-9]+/g) || []); }
 function tokenizeFiltered(text){ return tokenize(text).filter(t=>!STOPWORDS.has(t) && t.length>1); }
+function wordCount(s){ return s.split(/\s+/).filter(Boolean).length; }
 
 function buildVocab(chunks){
   const df = new Map();
@@ -645,6 +738,12 @@ function tfidfVector(text, idfMap){
     if(idf) vec.set(term, (count/(terms.length||1)) * idf);
   });
   return vec;
+}
+
+function bagOfWords(tokens){
+  const m = new Map();
+  tokens.forEach(t=>m.set(t,(m.get(t)||0)+1));
+  return m;
 }
 
 function cosineSparse(a,b){
@@ -704,13 +803,52 @@ function formatSize(bytes){
   return (bytes/1024/1024).toFixed(2)+' MB';
 }
 
+// Converts a parsed HTML document into lightweight, markdown-style plain text
+// (headers, lists, code blocks) so document-type-aware chunking has real
+// structure to detect, instead of one flattened wall of text.
+function htmlToStructuredText(doc){
+  if(!doc.body) return '';
+  const lines = [];
+  function walk(node){
+    if(node.nodeType === Node.TEXT_NODE){
+      const t = node.textContent.trim();
+      if(t) lines.push(t);
+      return;
+    }
+    if(node.nodeType !== Node.ELEMENT_NODE) return;
+    const tag = node.tagName.toLowerCase();
+    if(tag==='script' || tag==='style') return;
+    if(/^h[1-6]$/.test(tag)){
+      const level = parseInt(tag[1]);
+      lines.push('\n' + '#'.repeat(level) + ' ' + node.textContent.trim() + '\n');
+      return;
+    }
+    if(tag==='li'){
+      lines.push('- ' + node.textContent.trim());
+      return;
+    }
+    if(tag==='pre' || tag==='code'){
+      lines.push('\n```\n' + node.textContent.trim() + '\n```\n');
+      return;
+    }
+    if(tag==='p' || tag==='div' || tag==='br'){
+      Array.from(node.childNodes).forEach(walk);
+      lines.push('');
+      return;
+    }
+    Array.from(node.childNodes).forEach(walk);
+  }
+  walk(doc.body);
+  return lines.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+
 async function parseFile(file){
   const ext = file.name.split('.').pop().toLowerCase();
   if(ext==='txt') return await file.text();
   if(ext==='html' || ext==='htm'){
     const html = await file.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    return doc.body ? doc.body.textContent.replace(/\s+/g,' ').trim() : '';
+    return htmlToStructuredText(doc);
   }
   if(ext==='pdf'){
     if(!window.pdfjsLib) throw new Error('PDF engine failed to load');
@@ -740,7 +878,7 @@ function renderFileList(){
       <span class="f-icon">${d.icon}</span>
       <div class="f-meta">
         <div class="f-name">${escapeHtml(d.name)}</div>
-        <div class="f-size">${formatSize(d.size)} · ${d.text ? d.text.split(/\s+/).length+' words extracted' : '—'}</div>
+        <div class="f-size">${formatSize(d.size)}, ${d.text ? d.text.split(/\s+/).length+' words extracted' : 'n/a'}</div>
       </div>
       <span class="f-status ${d.status==='error'?'err':'ok'}">${d.status==='error'?'✕ '+d.error:'✓ ready'}</span>
       <button class="f-remove" onclick="removeDoc('${d.id}')" title="Remove">✕</button>
@@ -762,11 +900,11 @@ async function handleFiles(fileList){
   for(const file of fileList){
     const ext = file.name.split('.').pop().toLowerCase();
     if(!['pdf','docx','html','htm','txt'].includes(ext)){
-      showToast(`"${file.name}" isn't a supported type (pdf, docx, html, txt).`);
+      showToast(`"${file.name}" is not a supported type (pdf, docx, html, txt).`);
       continue;
     }
     if(file.size > MAX_FILE_SIZE){
-      showToast(`"${file.name}" is ${formatSize(file.size)} — over the 5MB limit.`);
+      showToast(`"${file.name}" is ${formatSize(file.size)}, over the 5MB limit.`);
       continue;
     }
     const doc = {id:'f'+(fileSeq++), name:file.name, size:file.size, type:ext, icon:icons[ext]||'📄', text:'', status:'parsing'};
@@ -799,7 +937,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.querySelector('.panel[data-panel="1"]').classList.add('active');
   renderTabs();
   renderStatusBar();
-  syncSliders();
+  onStrategyChange();
 });
 
 /* ============================================================
@@ -807,16 +945,29 @@ document.addEventListener('DOMContentLoaded', ()=>{
    ============================================================ */
 function onStrategyChange(){
   const strat = document.getElementById('chunkStrategy').value;
+  document.getElementById('sizeField').style.display = strat==='hierarchical' ? 'none' : 'block';
   document.getElementById('overlapField').style.display = strat==='sliding' ? 'block' : 'none';
-  document.getElementById('sizeLabel').textContent = strat==='sentence' ? 'Sentences per chunk' : 'Target size (words)';
+  document.getElementById('semanticField').style.display = strat==='semantic' ? 'block' : 'none';
+  document.getElementById('hierarchyField').style.display = strat==='hierarchical' ? 'grid' : 'none';
+
+  const labels = {
+    fixed:'Target size (words)', sliding:'Target size (words)',
+    sentence:'Sentences per chunk', recursive:'Target size (words)',
+    semantic:'Max chunk size (words)', docaware:'Max paragraph size (words)',
+  };
+  document.getElementById('sizeLabel').textContent = labels[strat] || 'Target size (words)';
+
   const sizeSlider = document.getElementById('sizeSlider');
-  if(strat==='sentence'){ sizeSlider.min=1; sizeSlider.max=8; if(sizeSlider.value>8) sizeSlider.value=3; }
-  else { sizeSlider.min=15; sizeSlider.max=150; if(sizeSlider.value<15) sizeSlider.value=60; }
+  if(strat==='sentence'){ sizeSlider.min=1; sizeSlider.max=8; if(+sizeSlider.value>8) sizeSlider.value=3; }
+  else { sizeSlider.min=15; sizeSlider.max=150; if(+sizeSlider.value<15) sizeSlider.value = (strat==='semantic'?80:60); }
   syncSliders();
 }
 function syncSliders(){
   document.getElementById('sizeVal').textContent = document.getElementById('sizeSlider').value;
   document.getElementById('overlapVal').textContent = document.getElementById('overlapSlider').value;
+  document.getElementById('simVal').textContent = document.getElementById('simSlider').value;
+  document.getElementById('parentVal').textContent = document.getElementById('parentSlider').value;
+  document.getElementById('childVal').textContent = document.getElementById('childSlider').value;
   const alpha = document.getElementById('alphaSlider').value;
   document.getElementById('alphaVal').textContent = alpha;
   document.getElementById('alphaValInv').textContent = 100-alpha;
@@ -825,7 +976,7 @@ function syncSliders(){
 }
 
 /* ============================================================
-   STAGE 2 — CHUNKING
+   STAGE 2: CHUNKING STRATEGIES
    ============================================================ */
 function chunkFixed(text, size){
   const words = text.split(/\s+/).filter(Boolean);
@@ -845,8 +996,11 @@ function chunkSliding(text, size, overlap){
   }
   return out;
 }
+function splitSentences(text){
+  return (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text]).map(s=>s.trim()).filter(Boolean);
+}
 function chunkSentenceFn(text, perChunk){
-  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+  const sentences = splitSentences(text);
   const out = [];
   for(let i=0;i<sentences.length;i+=perChunk) out.push(sentences.slice(i,i+perChunk).join(' ').trim());
   return out.filter(Boolean);
@@ -855,18 +1009,116 @@ function chunkRecursive(text, target){
   const paras = text.split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean);
   const out = [];
   (paras.length?paras:[text]).forEach(p=>{
-    const wc = p.split(/\s+/).filter(Boolean).length;
+    const wc = wordCount(p);
     if(wc<=target){ out.push(p); return; }
-    const sentences = p.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [p];
+    const sentences = splitSentences(p);
     let buf=[], bufWords=0;
     sentences.forEach(s=>{
-      const sw = s.trim().split(/\s+/).filter(Boolean).length;
+      const sw = wordCount(s);
       if(bufWords+sw>target && buf.length){ out.push(buf.join(' ').trim()); buf=[]; bufWords=0; }
-      buf.push(s.trim()); bufWords+=sw;
+      buf.push(s); bufWords+=sw;
     });
     if(buf.length) out.push(buf.join(' ').trim());
   });
   return out.filter(Boolean);
+}
+
+// Semantic chunking: keep consecutive sentences together while topic similarity
+// stays high, and start a new chunk when the similarity between adjacent
+// sentences drops below the threshold, or the size cap is hit. Similarity is a
+// bag-of-words cosine between sentences, a simplified proxy that keeps this
+// entirely self-contained and free of any external model.
+function chunkSemantic(text, maxWords, thresholdPct){
+  const sentences = splitSentences(text);
+  const threshold = thresholdPct/100;
+  if(sentences.length<=1) return sentences.map(s=>({text:s, whySim:null, whyReason:null}));
+  const vecs = sentences.map(s=>bagOfWords(tokenizeFiltered(s)));
+  const out = [];
+  let current=[sentences[0]], currentWords=wordCount(sentences[0]);
+  let pendingSim=null, pendingReason=null;
+  for(let i=1;i<sentences.length;i++){
+    const sim = cosineSparse(vecs[i-1], vecs[i]);
+    const nextWords = wordCount(sentences[i]);
+    const overSize = currentWords+nextWords > maxWords;
+    const belowThreshold = sim < threshold;
+    if(belowThreshold || overSize){
+      out.push({text: current.join(' '), whySim: pendingSim, whyReason: pendingReason});
+      current=[sentences[i]]; currentWords=nextWords;
+      pendingSim = sim; pendingReason = belowThreshold ? 'topic' : 'size';
+    } else {
+      current.push(sentences[i]); currentWords+=nextWords;
+    }
+  }
+  out.push({text: current.join(' '), whySim: pendingSim, whyReason: pendingReason});
+  return out;
+}
+
+// Hierarchical / parent-child chunking: split into larger parent sections first
+// (paragraph-aware), then split each parent into smaller child chunks. In
+// production, retrieval searches the precise child chunks, but context
+// assembly expands back to the full parent, the pattern a "parent document
+// retriever" setup uses.
+function chunkHierarchical(text, parentWords, childWords){
+  const parents = chunkRecursive(text, parentWords);
+  const out = [];
+  parents.forEach((parentText, pIdx)=>{
+    const children = chunkFixed(parentText, childWords);
+    children.forEach((childText, cIdx)=>{
+      out.push({text: childText, parentText, parentIndex: pIdx, childIndex: cIdx, siblingCount: children.length});
+    });
+  });
+  return out;
+}
+
+// Document-type-aware chunking: detects markdown-style structure (headers,
+// fenced code blocks, list blocks) and keeps each block type intact instead of
+// splitting it blindly. Headers attach to the block that follows them, and
+// plain paragraphs still fall back to the recursive splitter above when they
+// run long.
+function chunkDocAware(text, target){
+  const lines = text.split('\n');
+  const blocks = [];
+  let buf=[], mode=null, inCode=false, codeBuf=[];
+  function flush(){ if(buf.length){ blocks.push({type:mode||'para', text:buf.join('\n').trim()}); buf=[]; mode=null; } }
+  for(const line of lines){
+    if(/^```/.test(line.trim())){
+      if(!inCode){ flush(); inCode=true; codeBuf=[line]; }
+      else { codeBuf.push(line); blocks.push({type:'code', text:codeBuf.join('\n')}); inCode=false; codeBuf=[]; }
+      continue;
+    }
+    if(inCode){ codeBuf.push(line); continue; }
+    if(/^#{1,6}\s/.test(line.trim())){ flush(); blocks.push({type:'header', text:line.trim()}); continue; }
+    if(/^\s*([-*]|\d+\.)\s+/.test(line)){
+      if(mode!=='list'){ flush(); mode='list'; }
+      buf.push(line); continue;
+    }
+    if(line.trim()===''){ flush(); continue; }
+    if(mode!=='para'){ flush(); mode='para'; }
+    buf.push(line);
+  }
+  flush();
+  if(inCode && codeBuf.length) blocks.push({type:'code', text:codeBuf.join('\n')});
+
+  const out = [];
+  let pendingHeader=null;
+  blocks.forEach(b=>{
+    if(b.type==='header'){ pendingHeader=b.text; return; }
+    const prefix = pendingHeader ? pendingHeader+'\n' : '';
+    pendingHeader=null;
+    if(b.type==='code' || b.type==='list'){
+      out.push({text:(prefix+b.text).trim(), blockType:b.type});
+    } else {
+      const wc = wordCount(b.text);
+      if(wc<=target){
+        out.push({text:(prefix+b.text).trim(), blockType:'para'});
+      } else {
+        chunkRecursive(b.text, target).forEach((piece,i)=>{
+          out.push({text: i===0?(prefix+piece).trim():piece, blockType:'para'});
+        });
+      }
+    }
+  });
+  return out.filter(o=>o.text);
 }
 
 function runChunking(){
@@ -874,6 +1126,10 @@ function runChunking(){
   const strat = document.getElementById('chunkStrategy').value;
   const size = parseInt(document.getElementById('sizeSlider').value);
   const overlap = parseInt(document.getElementById('overlapSlider').value);
+  const simThreshold = parseInt(document.getElementById('simSlider').value);
+  const parentSize = parseInt(document.getElementById('parentSlider').value);
+  const childSize = parseInt(document.getElementById('childSlider').value);
+  state.lastStrategy = strat;
 
   const sources = [];
   const pasted = document.getElementById('textInput').value.trim();
@@ -889,25 +1145,39 @@ function runChunking(){
     if(strat==='fixed') pieces = chunkFixed(src.text, size);
     else if(strat==='sliding') pieces = chunkSliding(src.text, size, overlap);
     else if(strat==='sentence') pieces = chunkSentenceFn(src.text, size);
+    else if(strat==='semantic') pieces = chunkSemantic(src.text, size, simThreshold);
+    else if(strat==='hierarchical') pieces = chunkHierarchical(src.text, parentSize, childSize);
+    else if(strat==='docaware') pieces = chunkDocAware(src.text, size);
     else pieces = chunkRecursive(src.text, size);
-    pieces.filter(p=>p.trim()).forEach((text,i)=>{
-      state.chunks.push({id:'c'+(cid++), text:text.trim(), source:src.name, index:i});
+
+    pieces.forEach((piece, i)=>{
+      const isObj = typeof piece === 'object';
+      const text = (isObj ? piece.text : piece).trim();
+      if(!text) return;
+      state.chunks.push({
+        id:'c'+(cid++), text, source:src.name, index:i,
+        parentText: isObj ? piece.parentText : undefined,
+        parentIndex: isObj ? piece.parentIndex : undefined,
+        siblingCount: isObj ? piece.siblingCount : undefined,
+        blockType: isObj ? piece.blockType : undefined,
+        whySim: isObj ? piece.whySim : undefined,
+        whyReason: isObj ? piece.whyReason : undefined,
+      });
     });
   });
 
-  document.getElementById('chunkOut').innerHTML = state.chunks.map((c,i)=>`
-    <div class="chunk-item" style="animation-delay:${Math.min(i*0.03,0.6)}s">
-      <div class="c-head"><b>CHUNK ${i+1}</b><span class="src-tag">${escapeHtml(c.source)}</span></div>
-      ${escapeHtml(c.text)}
-    </div>`).join('');
+  renderChunks(strat);
 
   const explain = document.getElementById('chunkExplain');
   explain.style.display='block';
   const explainText = {
-    fixed: 'Fixed-size chunking is simple and predictable, but it can slice a sentence — or an idea — in half at the boundary.',
+    fixed: 'Fixed-size chunking is simple and predictable, but it can slice a sentence, or an idea, in half at the boundary.',
     sliding: 'Overlap means the same sentence can appear in two chunks, protecting against an idea getting cut at a hard boundary.',
     sentence: 'Sentence-based chunking respects grammatical boundaries, but chunk length varies a lot depending on sentence length.',
-    recursive: 'Recursive chunking tries paragraph boundaries first, and only splits further (into sentences) when a paragraph is too long — the closest to how a person would break up a document.',
+    recursive: 'Recursive chunking tries paragraph boundaries first, and only splits further into sentences when a paragraph is too long. This is the closest to how a person would break up a document.',
+    semantic: 'Semantic chunking measures topic similarity between consecutive sentences and starts a new chunk where the topic actually shifts, instead of at a fixed word count. Look for the topic-shift tag below to see where and why each boundary happened.',
+    hierarchical: 'Hierarchical chunking searches over small, precise child chunks but expands back to the full parent section for context, the same pattern a production parent document retriever uses. Parents and their children are grouped below.',
+    docaware: 'Document-type-aware chunking detects headings, lists, and code blocks and keeps each one intact instead of splitting it blindly. The default example text includes all three, so you can see it work.',
   };
   explain.innerHTML = explainText[strat] + ` Produced <strong>${state.chunks.length}</strong> chunks from ${sources.length} source${sources.length!==1?'s':''}.`;
 
@@ -919,8 +1189,58 @@ function runChunking(){
   renderStatusBar();
 }
 
+function renderChunks(strat){
+  const container = document.getElementById('chunkOut');
+
+  if(strat==='hierarchical'){
+    const groups = new Map();
+    state.chunks.forEach(c=>{
+      const key = c.source+'::'+c.parentIndex;
+      if(!groups.has(key)) groups.set(key, {source:c.source, parentIndex:c.parentIndex, parentText:c.parentText, children:[]});
+      groups.get(key).children.push(c);
+    });
+    let gi=0;
+    container.innerHTML = [...groups.values()].map(g=>{
+      gi++;
+      const preview = g.parentText.length>170 ? g.parentText.slice(0,170)+'...' : g.parentText;
+      const childHtml = g.children.map((c,ci)=>`
+        <div class="chunk-item" style="animation-delay:${Math.min((gi*0.1)+(ci*0.06),0.9)}s">
+          <div class="c-head"><b>CHILD ${ci+1} / ${g.children.length}</b></div>
+          ${escapeHtml(c.text)}
+        </div>`).join('');
+      return `
+        <div class="parent-group" style="animation-delay:${Math.min(gi*0.1,0.9)}s">
+          <div class="parent-header">
+            <span class="parent-tag">PARENT ${gi}</span>
+            <span class="src-tag">${escapeHtml(g.source)}</span>
+          </div>
+          <div class="parent-preview">${escapeHtml(preview)}</div>
+          <div class="child-list">${childHtml}</div>
+        </div>`;
+    }).join('');
+    return;
+  }
+
+  const blockLabels = {header:'heading + text', code:'code block', list:'list', para:'paragraph'};
+  container.innerHTML = state.chunks.map((c,i)=>{
+    let badge = '';
+    if(strat==='semantic' && c.whyReason){
+      const label = c.whyReason==='topic' ? `topic shift, similarity ${c.whySim.toFixed(2)}` : 'size limit reached';
+      badge = `<span class="reason-tag ${c.whyReason}">${label}</span>`;
+    }
+    if(strat==='docaware' && c.blockType){
+      badge = `<span class="reason-tag block-${c.blockType}">${blockLabels[c.blockType]||c.blockType}</span>`;
+    }
+    return `
+    <div class="chunk-item" style="animation-delay:${Math.min(i*0.03,0.6)}s">
+      <div class="c-head"><b>CHUNK ${i+1}</b><span class="src-tag">${escapeHtml(c.source)}</span>${badge}</div>
+      ${escapeHtml(c.text)}
+    </div>`;
+  }).join('');
+}
+
 /* ============================================================
-   STAGE 3 — EMBEDDINGS (TF-IDF)
+   STAGE 3: EMBEDDINGS (TF-IDF)
    ============================================================ */
 function seqColor(pct){ // pct 0-1
   const steps=['--seq-0','--seq-1','--seq-2','--seq-3','--seq-4','--seq-5','--seq-6','--seq-7','--seq-8'];
@@ -944,19 +1264,19 @@ function runEmbeddings(){
         <div class="swatch" style="background:${seqColor(w/maxW)};"></div>
         <div class="term" title="${escapeHtml(term)}">${escapeHtml(term)}</div>
       </div>`).join('');
-    return `<div class="embed-row"><span class="chunk-label">Chunk ${i+1} — top weighted terms</span><div class="heatmap">${cells}</div></div>`;
+    return `<div class="embed-row"><span class="scan-sweep" style="animation-delay:${i*0.05}s"></span><span class="chunk-label">Chunk ${i+1}: top weighted terms</span><div class="heatmap">${cells}</div></div>`;
   }).join('');
 
   const explain = document.getElementById('embedExplain');
   explain.style.display='block';
-  explain.innerHTML = `Vocabulary across all chunks: <strong>${vocab.length}</strong> terms — each chunk's vector has one weight per term. Lighter cells are terms that are both frequent in that chunk <em>and</em> rare across the others, so they carry the most identifying signal. This is exactly what real embedding models approximate with dense, learned vectors instead of counted ones.`;
+  explain.innerHTML = `Vocabulary across all chunks: <strong>${vocab.length}</strong> terms. Each chunk's vector has one weight per term, and lighter cells are terms that are both frequent in that chunk <em>and</em> rare across the others, so they carry the most identifying signal. This is exactly what real embedding models approximate with dense, learned vectors instead of counted ones.`;
 
   state.timings.embeddings = performance.now()-t0;
   renderStatusBar();
 }
 
 /* ============================================================
-   STAGE 4 — INDEXING
+   STAGE 4: INDEXING
    ============================================================ */
 function runIndexing(){
   if(!state.chunkVectors.length){ showToast('Generate embeddings first.'); return; }
@@ -969,7 +1289,15 @@ function runIndexing(){
   const sources = [...new Set(state.chunks.map(c=>c.source))];
   sourceFilter.innerHTML = '<option value="">All sources</option>' + sources.map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
 
+  const dotCount = Math.min(state.chunkVectors.length, 28);
+  const dotsHtml = Array.from({length:dotCount}).map((_,i)=>`<span class="index-dot" style="animation-delay:${i*0.09}s"></span>`).join('');
+
   document.getElementById('indexOut').innerHTML = `
+    <div class="index-flow">
+      <span class="flow-label">chunks</span>
+      <div class="flow-track">${dotsHtml}</div>
+      <span class="flow-end">🗂️</span>
+    </div>
     <div class="stat-grid">
       <div class="stat-tile"><div class="stat-label">Vectors indexed</div><div class="stat-value">${state.chunkVectors.length}</div></div>
       <div class="stat-tile"><div class="stat-label">Dimensions (vocab)</div><div class="stat-value">${state.vocab.length}</div></div>
@@ -986,14 +1314,14 @@ function runIndexing(){
         }).join('')}
       </tbody>
     </table>
-    <p class="explain">Sparse, sorted (term → weight) pairs like this are exactly what a real vector database persists — the only difference in production is dense neural vectors instead of TF-IDF, and an approximate-nearest-neighbor index (HNSW, IVF) instead of a full linear scan once you're past a few thousand vectors.</p>
+    <p class="explain">Sparse, sorted term-to-weight pairs like this are exactly what a real vector database persists. The only difference in production is dense neural vectors instead of TF-IDF, and an approximate-nearest-neighbor index (HNSW, IVF) instead of a full linear scan once you are past a few thousand vectors.</p>
   `;
   state.timings.indexing = performance.now()-t0;
   renderStatusBar();
 }
 
 /* ============================================================
-   STAGE 5 — RETRIEVAL
+   STAGE 5: RETRIEVAL
    ============================================================ */
 function runRetrieval(){
   if(!state.chunkVectors.length){ showToast('Build the index first.'); return; }
@@ -1073,22 +1401,35 @@ function runRetrieval(){
 }
 
 /* ============================================================
-   STAGE 6 — CONTEXT ASSEMBLY
+   STAGE 6: CONTEXT ASSEMBLY
    ============================================================ */
 function runContextAssembly(){
   if(!state.retrieval.length){ showToast('Run retrieval first.'); return; }
   const t0 = performance.now();
   const top = state.retrieval.slice(0,3);
-  const contextBlock = top.map((s,i)=>`[${i+1}] (source: ${s.chunk.source})\n${s.chunk.text}`).join('\n\n');
+
+  const seen = new Set();
+  const parts = [];
+  top.forEach(s=>{
+    const c = s.chunk;
+    const text = c.parentText || c.text;
+    const key = c.parentText ? ('parent:'+c.source+':'+c.parentIndex) : ('chunk:'+c.id);
+    if(seen.has(key)) return;
+    seen.add(key);
+    parts.push({source:c.source, text, isParent: !!c.parentText});
+  });
+
   const system = "You are a helpful assistant. Answer the user's question using ONLY the numbered context below. Cite sources by number. If the context doesn't contain the answer, say so plainly.";
-  const prompt = `${system}\n\n--- CONTEXT ---\n${contextBlock}\n\n--- QUESTION ---\n${state.query}`;
+  const contextBlockPlain = parts.map((p,i)=>`[${i+1}] (source: ${p.source}${p.isParent?', expanded to parent chunk':''})\n${p.text}`).join('\n\n');
+  const prompt = `${system}\n\n--- CONTEXT ---\n${contextBlockPlain}\n\n--- QUESTION ---\n${state.query}`;
   state.prompt = prompt;
 
   const estTokens = Math.round(prompt.split(/\s+/).length * 1.3);
+  const ctxHtml = parts.map((p,i)=>`<span class="ctx-block" style="animation-delay:${i*0.15}s">[${i+1}] (source: ${escapeHtml(p.source)}${p.isParent?', expanded to parent chunk':''})\n${escapeHtml(p.text)}</span>`).join('\n\n');
 
   document.getElementById('promptOut').innerHTML = `
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
-      <div class="stat-tile"><div class="stat-label">Chunks included</div><div class="stat-value">${top.length}</div></div>
+      <div class="stat-tile"><div class="stat-label">Chunks included</div><div class="stat-value">${parts.length}</div></div>
       <div class="stat-tile"><div class="stat-label">Est. tokens</div><div class="stat-value">${estTokens}</div></div>
       <div class="stat-tile"><div class="stat-label">Characters</div><div class="stat-value">${prompt.length}</div></div>
     </div>
@@ -1097,12 +1438,12 @@ function runContextAssembly(){
       <span class="sys">${escapeHtml(system)}</span>
 
       <span class="ctx-label">--- CONTEXT ---</span>
-${escapeHtml(contextBlock)}
+${ctxHtml}
 
       <span class="q-label">--- QUESTION ---</span>
 ${escapeHtml(state.query)}
     </div>
-    <p class="explain">Only the top ${top.length} results made the cut — a real system caps context by token budget, not just a fixed count. This exact string is what would be sent as the prompt to an LLM API in Stage 7.</p>
+    <p class="explain">Only the top ${parts.length} results made the cut. A real system caps context by token budget, not just a fixed count. This exact string is what would be sent as the prompt to an LLM API in Stage 7.</p>
   `;
   state.timings.contextAssembly = performance.now()-t0;
   renderStatusBar();
@@ -1112,7 +1453,7 @@ function copyPrompt(){
 }
 
 /* ============================================================
-   STAGE 7 — GENERATION (simulated / extractive)
+   STAGE 7: GENERATION (simulated / extractive)
    ============================================================ */
 function runGeneration(){
   if(!state.retrieval.length){ showToast('Run retrieval first.'); return; }
@@ -1122,25 +1463,47 @@ function runGeneration(){
 
   let answer;
   if(lowConfidence){
-    answer = `I don't have strong enough context to answer confidently. The closest match (Chunk ${state.retrieval[0].i+1}) only scored ${state.retrieval[0].final.toFixed(3)} — in production this would trigger a fallback rather than guessing.`;
+    answer = `I don't have strong enough context to answer confidently. The closest match (Chunk ${state.retrieval[0].i+1}) only scored ${state.retrieval[0].final.toFixed(3)}. In production this would trigger a fallback rather than guessing.`;
   } else {
-    answer = top.map((s,i)=>`${s.chunk.text}`).join(' ') ;
+    answer = top.map(s=>s.chunk.text).join(' ');
   }
   state.answer = answer;
 
+  const citeHtml = !lowConfidence
+    ? `<div class="cite-row" id="citeRow" style="opacity:0;">${top.map((s,i)=>`<span class="cite">[${i+1}] Chunk ${s.i+1}, ${escapeHtml(s.chunk.source)}</span>`).join('  ')}</div>`
+    : '';
+
   document.getElementById('genOut').innerHTML = `
     <div class="callout">
-      ${escapeHtml(answer)}
-      ${!lowConfidence ? `<div style="margin-top:10px;">${top.map((s,i)=>`<span class="cite">[${i+1}] Chunk ${s.i+1} · ${escapeHtml(s.chunk.source)}</span>`).join('  ')}</div>` : ''}
+      <span id="answerText" class="typewriter"></span>
+      ${citeHtml}
     </div>
-    <p class="explain">${lowConfidence ? 'Low top-score triggered the fallback path instead of a confident-sounding guess — see Stage 8 for how a guardrail would catch this automatically.' : 'This stitches the top-ranked chunk(s) together rather than generating new prose — a real LLM call would paraphrase and synthesize across all context chunks instead.'}</p>
+    <p class="explain">${lowConfidence
+      ? 'A low top score triggered the fallback path instead of a confident-sounding guess. See Stage 8 for how a guardrail would catch this automatically.'
+      : 'This stitches the top-ranked chunk(s) together rather than generating new prose. A real LLM call would paraphrase and synthesize across all context chunks instead.'}</p>
   `;
+
+  const target = document.getElementById('answerText');
+  const words = answer.split(' ');
+  let wi = 0;
+  const timer = setInterval(()=>{
+    if(wi>=words.length){
+      clearInterval(timer);
+      target.classList.add('done');
+      const cite = document.getElementById('citeRow');
+      if(cite) cite.style.opacity = '1';
+      return;
+    }
+    target.textContent += (wi>0?' ':'') + words[wi];
+    wi++;
+  }, 26);
+
   state.timings.generation = performance.now()-t0;
   renderStatusBar();
 }
 
 /* ============================================================
-   STAGE 8 — GUARDRAILS
+   STAGE 8: GUARDRAILS
    ============================================================ */
 const PII_PATTERNS = [
   {re:/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i, label:'email address'},
@@ -1167,46 +1530,52 @@ function runGuardrails(){
   const checks = [];
   checks.push({
     title:'Groundedness',
-    pass: groundedness > 0.6,
     icon: groundedness>0.6?'✓':(groundedness>0.3?'!':'✕'),
     status: groundedness>0.6?'pass':(groundedness>0.3?'warn':'fail'),
-    desc: `${(groundedness*100).toFixed(0)}% of the answer's terms trace back to retrieved context. ${groundedness>0.6?'Well grounded.':'Below the 60% threshold — flag for review.'}`
+    desc: `${(groundedness*100).toFixed(0)}% of the answer's terms trace back to retrieved context. ${groundedness>0.6?'Well grounded.':'Below the 60% threshold, flag for review.'}`
   });
   checks.push({
     title:'Retrieval confidence',
-    pass: topScore >= 0.12,
     icon: topScore>=0.12?'✓':'!',
     status: topScore>=0.12?'pass':'warn',
-    desc: `Top match scored ${topScore.toFixed(3)}. ${topScore>=0.12?'Above the confidence floor.':'Below the confidence floor — a fallback response is appropriate here.'}`
+    desc: `Top match scored ${topScore.toFixed(3)}. ${topScore>=0.12?'Above the confidence floor.':'Below the confidence floor, a fallback response is appropriate here.'}`
   });
   checks.push({
     title:'PII / sensitive content scan',
-    pass: !piiHit,
     icon: piiHit?'✕':'✓',
     status: piiHit?'fail':'pass',
-    desc: piiHit ? `Answer appears to contain a ${piiHit.label} — would be redacted before returning to the user.` : 'No email, phone, or SSN-like patterns detected in the answer.'
+    desc: piiHit ? `Answer appears to contain a ${piiHit.label}, and it would be redacted before returning to the user.` : 'No email, phone, or SSN-like patterns detected in the answer.'
   });
   checks.push({
     title:'Source citation present',
-    pass: !state.answer.startsWith("I don't have"),
     icon: '✓',
     status: 'pass',
-    desc: 'Every claim in the answer is traceable to a numbered chunk from Stage 6 — never an unlabeled assertion.'
+    desc: 'Every claim in the answer is traceable to a numbered chunk from Stage 6, never an unlabeled assertion.'
   });
   state.guardrails = checks;
 
-  document.getElementById('guardrailOut').innerHTML = checks.map(c=>`
+  document.getElementById('guardrailOut').innerHTML = checks.map((c,i)=>`
     <div class="guardrail-item">
-      <div class="g-icon ${c.status}">${c.icon}</div>
-      <div class="g-body"><div class="g-title">${c.title}</div><div class="g-desc">${c.desc}</div></div>
+      <div class="g-icon pending" id="grIcon${i}"><span class="spinner"></span></div>
+      <div class="g-body"><div class="g-title">${c.title}</div><div class="g-desc" id="grDesc${i}"></div></div>
     </div>`).join('');
+
+  checks.forEach((c,i)=>{
+    setTimeout(()=>{
+      const icon = document.getElementById('grIcon'+i);
+      if(!icon) return;
+      icon.className = 'g-icon '+c.status;
+      icon.textContent = c.icon;
+      document.getElementById('grDesc'+i).textContent = c.desc;
+    }, 280*(i+1));
+  });
 
   state.timings.guardrails = performance.now()-t0;
   renderStatusBar();
 }
 
 /* ============================================================
-   STAGE 9 — OBSERVABILITY
+   STAGE 9: OBSERVABILITY
    ============================================================ */
 function getFeedback(){
   try{ return JSON.parse(localStorage.getItem('rag_playground_feedback')||'{"up":0,"down":0}'); }
@@ -1220,12 +1589,22 @@ function giveFeedback(dir){
   fb[dir]++;
   setFeedback(fb.up, fb.down);
   renderObsFeedback();
-  showToast(dir==='up' ? 'Thanks for the feedback!' : 'Thanks — logged for review.');
+  showToast(dir==='up' ? 'Thanks for the feedback!' : 'Thanks, logged for review.');
 }
 function renderObsFeedback(){
   const fb = getFeedback();
   const el = document.getElementById('fbTally');
-  if(el) el.textContent = `👍 ${fb.up}  ·  👎 ${fb.down}  (stored locally in your browser)`;
+  if(el) el.textContent = `👍 ${fb.up}   👎 ${fb.down}  (stored locally in your browser)`;
+}
+
+function countUp(el, target, duration=500){
+  const start = performance.now();
+  function step(now){
+    const p = Math.min(1, (now-start)/duration);
+    el.textContent = Math.round(target*p) + 'ms';
+    if(p<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
 }
 
 function runObservability(){
@@ -1239,11 +1618,11 @@ function runObservability(){
   const total = rows.reduce((s,[k])=>s+state.timings[k],0) || 1;
   const maxT = Math.max(...rows.map(([k])=>state.timings[k]), 1);
 
-  const traceHtml = rows.length ? rows.map(([k,label])=>{
+  const traceHtml = rows.length ? rows.map(([k,label],i)=>{
     const ms = state.timings[k];
     return `<div class="trace-row">
       <span class="t-name">${label}</span>
-      <div class="t-bar-track"><div class="t-bar-fill" style="width:${(ms/maxT*100).toFixed(0)}%"></div></div>
+      <div class="t-bar-track"><div class="t-bar-fill" id="traceBar${i}" data-w="${(ms/maxT*100).toFixed(0)}"></div></div>
       <span class="t-ms">${ms.toFixed(1)}ms</span>
     </div>`;
   }).join('') : '<p class="empty-hint">Run a few stages above first to build a trace.</p>';
@@ -1251,6 +1630,7 @@ function runObservability(){
   const rawTrace = JSON.stringify({
     documents: state.documents.length,
     chunks: state.chunks.length,
+    chunkStrategy: state.lastStrategy,
     vocabSize: state.vocab.length,
     query: state.query,
     topScore: state.retrieval[0]?.final?.toFixed(4),
@@ -1262,7 +1642,7 @@ function runObservability(){
 
   document.getElementById('obsOut').innerHTML = `
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
-      <div class="stat-tile"><div class="stat-label">Total pipeline time</div><div class="stat-value">${total.toFixed(0)}ms</div></div>
+      <div class="stat-tile"><div class="stat-label">Total pipeline time</div><div class="stat-value" id="totalMsValue">0ms</div></div>
       <div class="stat-tile"><div class="stat-label">Stages run</div><div class="stat-value">${rows.length}/7</div></div>
       <div class="stat-tile"><div class="stat-label">Guardrail flags</div><div class="stat-value ${state.guardrails.some(g=>g.status!=='pass')?'weak':'good'}">${state.guardrails.filter(g=>g.status!=='pass').length}</div></div>
     </div>
@@ -1275,6 +1655,16 @@ function runObservability(){
     <details class="raw-trace"><summary>Raw trace (JSON)</summary><pre>${escapeHtml(rawTrace)}</pre></details>
   `;
   renderObsFeedback();
+
+  const totalEl = document.getElementById('totalMsValue');
+  if(totalEl) countUp(totalEl, total);
+  requestAnimationFrame(()=>{
+    rows.forEach((_,i)=>{
+      const bar = document.getElementById('traceBar'+i);
+      if(bar) bar.style.width = bar.dataset.w + '%';
+    });
+  });
+
   state.timings.observability = performance.now()-t0;
 }
 </script>
